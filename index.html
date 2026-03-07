@@ -1,1 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>The Lens Express — Bias Investigation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garant:ital,wght@0,400;0,600;0,700;1,400;1,700&family=DM+Sans:wght@300;400;500;700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet"/>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-database-compat.js"></script>
 
+    <style>
+        /* DESIGN TOKENS */
+        :root {
+            --void:#050509; --surface:#0e0e1a; --gold:#d4a843; --gold2:#b8891e; --gold3:#f0c060;
+            --teal:#00b8a9; --teal-g:rgba(0,184,169,.09); --cream:#e8e0cc; --text:#d4cfc4;
+            --text2:#8a8578; --border:rgba(212,168,67,.14);
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'DM Sans', sans-serif; background:var(--void); color:var(--text); min-height:100vh; overflow-x:hidden; }
+
+        /* LOADING CURTAIN */
+        #curtain {
+            position:fixed; inset:0; background:var(--void); z-index:9999;
+            display:flex; align-items:center; justify-content:center; flex-direction:column; gap:1.6rem;
+            transition: opacity 1.2s ease;
+        }
+        #curtain.out { opacity:0; pointer-events:none; }
+        .ct-title { font-family:'Cormorant Garant', serif; font-size:3.2rem; color:var(--gold3); }
+        .ct-bar { width:180px; height:2px; background:rgba(212,168,67,.08); overflow:hidden; }
+        .ct-fill { height:100%; background:var(--gold2); animation: cfill 2.8s forwards; }
+        @keyframes cfill { from { width:0; } to { width:100%; } }
+
+        /* HEADER & LAYOUT */
+        header { position:sticky; top:0; z-index:100; background:rgba(5,5,9,.95); border-bottom:1px solid var(--border); backdrop-filter:blur(16px); }
+        .header-main { display:flex; align-items:center; justify-content:space-between; padding:.8rem 2rem; }
+        #gtimer { font-family:'Courier Prime', monospace; font-size:1.4rem; color:var(--teal); }
+        .layout { display:grid; grid-template-columns: 1fr 288px; min-height:calc(100vh - 76px); }
+        .sidebar { padding:1.2rem; background:rgba(5,5,9,.9); border-left:1px solid var(--border); }
+
+        /* SCREENS */
+        .screen { display:none; padding: 2rem; }
+        .screen.active { display:block; }
+        
+        /* JOIN CARD */
+        .jcard { max-width:500px; margin: 4rem auto; text-align:center; padding:3rem; border:1px solid var(--border); background:rgba(212,168,67,.02); }
+        .board-btn { width:100%; padding:1rem; background:var(--gold2); border:none; color:var(--void); font-weight:700; cursor:pointer; margin-top:1.5rem; }
+        input[type="text"] { width:100%; padding:.8rem; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:white; margin-top:0.5rem; }
+
+        /* WORD SEARCH STYLES */
+        .ws-box { margin-top:1.2rem; padding:1.2rem; background:rgba(0,0,0,.3); border:1px solid var(--border); border-radius:4px; }
+        .ws-grid { font-family:'Courier Prime', monospace; font-size:.9rem; line-height:2; letter-spacing:.5em; color:var(--text); text-align:center; white-space:pre-wrap; word-break:break-all; }
+        .ws-grid-label { font-size:.7rem; text-align:center; color:var(--gold); margin-top:1rem; letter-spacing:.1em; text-transform:uppercase; }
+        .ws-inputs { display:grid; grid-template-columns: 1fr; gap:10px; margin-top:20px; }
+        .found-count { font-size: 0.8rem; color: var(--teal); margin-bottom: 10px; text-align: right; }
+
+        /* SUCCESS SCREEN STYLES */
+        #success-screen.active { display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .comp-card { 
+            text-align: center; max-width: 500px; padding: 3rem; 
+            background: rgba(212, 168, 67, 0.05); border: 1px solid var(--gold); 
+            position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+        }
+        .comp-trophy { font-size: 3rem; display: block; margin-bottom: 1rem; }
+        .comp-time { font-family: 'Courier Prime', monospace; font-size: 3.2rem; color: #4ade80; margin: 1rem 0; }
+        .comp-div { width: 100px; height: 1px; background: var(--gold2); margin: 0 auto 1.5rem; }
+        .findings { background: rgba(0, 184, 169, 0.05); padding: 1.5rem; text-align: left; border-radius: 4px; }
+        .findings-title { color: var(--teal); font-style: italic; margin-bottom: 0.5rem; font-size: 0.9rem; }
+        .finding { font-size: 0.8rem; color: var(--text2); margin-bottom: 0.3rem; line-height: 1.4; }
+        .board-again { margin-top: 2rem; padding: 0.8rem 2rem; background: var(--gold); border: none; font-weight: 700; cursor: pointer; color: var(--void); }
+    </style>
+</head>
+<body>
+
+    <div id="curtain">
+        <h1 class="ct-title">THE LENS <em>EXPRESS</em></h1>
+        <div class="ct-bar"><div class="ct-fill"></div></div>
+        <p style="font-size:0.7rem; color:var(--text2); letter-spacing:0.2em;">PREPARING INVESTIGATION</p>
+    </div>
+
+    <header>
+        <div class="header-main">
+            <div style="font-family:'Cormorant Garant', serif; color:var(--gold3); font-weight:700;">THE LENS <em>EXPRESS</em></div>
+            <div id="gtimer">00:00</div>
+            <div style="font-size:0.7rem; color:var(--text2);">BOARDING...</div>
+        </div>
+    </header>
+
+    <main class="layout">
+        <section class="story">
+            
+            <div id="join-screen" class="screen active">
+                <div class="jcard">
+                    <h2 style="font-family:'Cormorant Garant', serif; font-size:2rem; color:var(--gold3);">Detective Onboard</h2>
+                    <div style="margin: 1.5rem 0;">
+                        <label style="font-size:0.6rem; text-transform:uppercase; color:var(--gold);">Enter Name</label>
+                        <input type="text" id="p-name" placeholder="Identifying name...">
+                    </div>
+                    <button class="board-btn" onclick="startGame()">START INVESTIGATION</button>
+                </div>
+            </div>
+
+            <div id="game-screen" class="screen">
+                <div class="scene">
+                    <h2 style="font-family:'Cormorant Garant', serif; color:var(--gold3); font-size: 2rem;">Chapter 1: The Hidden Bias</h2>
+                    <p style="font-style:italic; color:var(--text2); margin-bottom:2rem;">The passenger manifest is riddled with errors. Locate 10 hidden biases.</p>
+                </div>
+
+                <div class="found-count">Evidence Found: <span id="count">0</span>/10</div>
+
+                <div class="ws-box">
+                    <div class="ws-grid">
+Z F N S D R M C L H Y E J H A
+S I L I X O X Z S O R L S H A
+P R E T J L T W X R L K T A G
+V S H I P K V K C N O P E L E
+O T V A C E G Y D D E J R O I
+G I Y X C E I Q W T U U E Q S
+D M P N I L G E N D E R R O E
+N P A F F I N I T Y R T Q G S
+T R G C E P N B T H B T Y F I
+A S E D S D R E C E N C Y A M
+K S B K W I T I P E K U E H J
+M I P L P R O X I M I T Y V R
+C O N F O R M I T Y E M I Z T
+A T T R I B U T I O N N N I F
+B L I N D S P O T S E B Y N N
+                    </div>
+                    <div class="ws-grid-label">Analyze the grid and type your findings below</div>
+                </div>
+
+                <div class="ws-inputs">
+                    <input type="text" id="word-input" placeholder="Type a bias found in the grid..." oninput="checkWord(this)">
+                </div>
+            </div>
+
+            <div id="success-screen" class="screen">
+                <div class="comp-card">
+                    <span class="comp-trophy">🕵️‍♂️</span>
+                    <div class="comp-ornament">Case Successfully Closed</div>
+                    <h2 class="comp-title">EVIDENCE VERIFIED</h2>
+                    <div class="comp-div"></div>
+                    <div class="comp-time" id="final-time">00:00</div>
+                    <p class="comp-rank">Rank: Master Detective</p>
+                    
+                    <div class="findings">
+                        <div class="findings-title">Investigation Summary:</div>
+                        <div class="finding"><span style="color:var(--gold);">◆</span> All 10 cognitive biases extracted from the manifest.</div>
+                        <div class="finding"><span style="color:var(--gold);">◆</span> Intelligence sent to headquarters.</div>
+                    </div>
+                    
+                    <button class="board-again" onclick="location.reload()">RE-RUN CASE</button>
+                </div>
+            </div>
+
+        </section>
+
+        <aside class="sidebar">
+            <h3 style="font-family:'Cormorant Garant', serif; color:var(--gold3); font-size:0.9rem; margin-bottom:1rem;">DETECTIVE LOG</h3>
+            <div id="leaderboard" style="font-size:0.7rem; color:var(--text2);">
+                Syncing with server...
+            </div>
+        </aside>
+    </main>
+
+    <script>
+        // 1. FIREBASE CONFIG - PASTE YOUR KEYS FROM FIREBASE CONSOLE HERE
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            databaseURL: "https://YOUR_PROJECT.firebaseio.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // 2. GAME VARIABLES
+        let playerName = "";
+        let seconds = 0;
+        let timerInterval;
+        let foundWords = [];
+        const targetWords = [
+            "AFFINITY", "HALO", "RECENCY", "PROXIMITY", "CONFORMITY", 
+            "ANCHOR", "GENDER", "ATTRIBUTION", "STEREOTYPE", "BLINDSPOT"
+        ];
+
+        // 3. START GAME
+        function startGame() {
+            playerName = document.getElementById('p-name').value;
+            if(!playerName) return alert("Identify yourself, Detective!");
+            
+            document.getElementById('join-screen').classList.remove('active');
+            document.getElementById('game-screen').classList.add('active');
+            startTimer();
+        }
+
+        // 4. TIMER
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                seconds++;
+                let mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+                let secs = (seconds % 60).toString().padStart(2, '0');
+                document.getElementById('gtimer').innerText = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        // 5. WORD CHECKER
+        function checkWord(input) {
+            let val = input.value.toUpperCase().trim();
+            if(targetWords.includes(val) && !foundWords.includes(val)) {
+                foundWords.push(val);
+                document.getElementById('count').innerText = foundWords.length;
+                input.value = ""; // Clear for next word
+                
+                // Visual feedback
+                input.style.borderColor = "var(--teal)";
+                setTimeout(() => input.style.borderColor = "var(--border)", 600);
+
+                if(foundWords.length === targetWords.length) {
+                    finishGame();
+                }
+            }
+        }
+
+        // 6. FINISH GAME
+        function finishGame() {
+            clearInterval(timerInterval);
+            const finalTimeText = document.getElementById('gtimer').innerText;
+            document.getElementById('final-time').innerText = finalTimeText;
+
+            // Transition to Success Screen
+            document.getElementById('game-screen').classList.remove('active');
+            document.getElementById('success-screen').classList.add('active');
+
+            // Send result to Firebase Leaderboard
+            db.ref('leaderboard').push({
+                name: playerName,
+                time: finalTimeText,
+                rawSeconds: seconds,
+                timestamp: Date.now()
+            });
+        }
+
+        // DISMISS CURTAIN
+        setTimeout(() => document.getElementById('curtain').classList.add('out'), 3000);
+    </script>
+</body>
+</html>
