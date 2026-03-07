@@ -34,7 +34,7 @@
         .screen { display:none; padding: 2rem; overflow-y:auto; }
         .screen.active { display:block; }
 
-        /* WORD SEARCH */
+        /* WORD SEARCH GRID */
         .ws-grid { font-family:'Courier Prime', monospace; font-size:1.1rem; line-height:1.7; letter-spacing:0.5em; text-align:center; background:rgba(255,255,255,0.03); padding:1.5rem; border:1px solid var(--border); border-radius:4px; margin-top:1rem; }
         .ws-inputs { margin-top:2rem; text-align:center; }
         input[type="text"] { width:80%; padding:1rem; background:rgba(255,255,255,0.05); border:1px solid var(--gold); color:white; text-align:center; font-size:1.2rem; margin-top:10px; }
@@ -115,7 +115,7 @@ B L I N D S P O T S E B Y N N
     </main>
 
     <script>
-        // FIREBASE CONFIGURATION
+        // CONFIGURATION FROM YOUR FIREBASE SETUP
         const firebaseConfig = {
             apiKey: "AIzaSyDU-6D6LyvmUTkf-WpKSLkhyeTRCrFc9o4",
             authDomain: "lensexpress-cfc78.firebaseapp.com",
@@ -126,7 +126,6 @@ B L I N D S P O T S E B Y N N
             appId: "1:1058177027648:web:cbf9013e65c950db1c99a5"
         };
 
-        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
@@ -136,7 +135,6 @@ B L I N D S P O T S E B Y N N
         let foundWords = [];
         const targetWords = ["AFFINITY", "HALO", "RECENCY", "PROXIMITY", "CONFORMITY", "ANCHOR", "GENDER", "ATTRIBUTION", "STEREOTYPE", "BLINDSPOT"];
 
-        // Start Game Logic
         function startGame() {
             playerName = document.getElementById('p-name').value;
             if(!playerName) return alert("Identify yourself, Detective!");
@@ -170,8 +168,6 @@ B L I N D S P O T S E B Y N N
             document.getElementById('final-time').innerText = ft;
             document.getElementById('game-screen').classList.remove('active');
             document.getElementById('success-screen').classList.add('active');
-            
-            // Save to Firebase
             db.ref('leaderboard').push({
                 name: playerName,
                 time: ft,
@@ -179,7 +175,6 @@ B L I N D S P O T S E B Y N N
             });
         }
 
-        // Realtime Leaderboard Sync
         db.ref('leaderboard').orderByChild('rawSeconds').limitToFirst(10).on('value', (snapshot) => {
             const list = document.getElementById('leaderboard-list');
             list.innerHTML = "";
@@ -191,7 +186,7 @@ B L I N D S P O T S E B Y N N
             });
         });
 
-        // Hide Loading Screen
+        // This removes the loading curtain once the script executes
         setTimeout(() => {
             document.getElementById('curtain').classList.add('out');
         }, 3000);
