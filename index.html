@@ -1,195 +1,1453 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>The Lens Express — Bias Investigation</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garant:ital,wght@0,400;0,700;1,400;1,700&family=DM+Sans:wght@300;400;700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet"/>
-    
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>The Lens Express — Bias Investigation</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garant:ital,wght@0,400;0,600;0,700;1,400;1,700&family=DM+Sans:wght@300;400;500;700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --void:#050509;--deep:#09090f;--surface:#0e0e1a;--card:#131320;--card2:#181828;
+  --gold:#d4a843;--gold2:#b8891e;--gold3:#f0c060;--gold-pale:rgba(212,168,67,.08);
+  --gold-mid:rgba(212,168,67,.18);--teal:#00b8a9;--teal2:#007a70;--teal-g:rgba(0,184,169,.09);
+  --red:#cc3a3a;--red-g:rgba(204,58,58,.08);--green:#2daa9e;--green-g:rgba(45,170,158,.09);
+  --purple:#8b5cf6;--cream:#e8e0cc;--text:#d4cfc4;--text2:#8a8578;--muted:#565050;
+  --border:rgba(212,168,67,.14);--border2:rgba(212,168,67,.06);--shadow:rgba(0,0,0,.7);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{font-family:'DM Sans',sans-serif;background:var(--void);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:1000;opacity:.4;}
 
-    <style>
-        :root {
-            --void:#050509; --surface:#0e0e1a; --gold:#d4a843; --gold2:#b8891e; --gold3:#f0c060;
-            --teal:#00b8a9; --text:#d4cfc4; --text2:#8a8578; --border:rgba(212,168,67,.14);
-        }
+/* ── AMBIENT ── */
+#ambient{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;}
+.star{position:absolute;background:#fff;border-radius:50%;animation:twinkle ease-in-out infinite;}
+@keyframes twinkle{0%,100%{opacity:.1;transform:scale(1)}50%{opacity:.85;transform:scale(1.5)}}
+.streak{position:absolute;height:1px;background:linear-gradient(90deg,transparent,rgba(212,168,67,.15),transparent);animation:streakAnim linear infinite;}
+@keyframes streakAnim{from{transform:translateX(-100vw)}to{transform:translateX(200vw)}}
 
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:'DM Sans', sans-serif; background:var(--void); color:var(--text); min-height:100vh; overflow:hidden; }
+/* ── TRACKS ── */
+#tracks{position:fixed;bottom:0;left:0;width:100%;height:80px;pointer-events:none;z-index:1;overflow:hidden;}
+.rail{position:absolute;width:200%;height:2px;background:repeating-linear-gradient(90deg,rgba(212,168,67,.2) 0,rgba(212,168,67,.2) 28px,transparent 28px,transparent 48px);animation:rScroll 1.4s linear infinite;}
+.rail.r1{bottom:28px;}.rail.r2{bottom:22px;opacity:.6;animation-duration:1.1s;}
+.tie{position:absolute;bottom:16px;width:200%;height:14px;background:repeating-linear-gradient(90deg,rgba(212,168,67,.06) 0,rgba(212,168,67,.06) 3px,transparent 3px,transparent 26px);animation:rScroll .8s linear infinite;}
+@keyframes rScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.puff{position:absolute;border-radius:50%;background:radial-gradient(circle,rgba(200,210,255,.05),transparent);animation:puffRise ease-out infinite;}
+@keyframes puffRise{0%{transform:translateY(0) scale(1);opacity:.4}100%{transform:translateY(-100px) scale(3);opacity:0}}
 
-        /* LOADING CURTAIN */
-        #curtain {
-            position:fixed; inset:0; background:var(--void); z-index:9999;
-            display:flex; align-items:center; justify-content:center; flex-direction:column; gap:1.6rem;
-            transition: opacity 1.2s ease;
-        }
-        #curtain.out { opacity:0; pointer-events:none; }
-        .ct-title { font-family:'Cormorant Garant', serif; font-size:3.2rem; color:var(--gold3); letter-spacing: 0.1em; }
+/* ── CURTAIN ── */
+#curtain{position:fixed;inset:0;background:var(--void);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1.6rem;transition:opacity 1.2s ease;}
+#curtain.out{opacity:0;pointer-events:none;}
+#curtain::before,#curtain::after{content:'';position:absolute;border:1px solid rgba(212,168,67,.15);border-radius:2px;pointer-events:none;}
+#curtain::before{inset:24px;}#curtain::after{inset:30px;border-color:rgba(212,168,67,.07);}
+.ct-ornament{color:var(--gold);font-size:.8rem;letter-spacing:.4em;opacity:.5;text-transform:uppercase;}
+.ct-train{font-size:4rem;animation:trainRock 1s ease-in-out infinite alternate;display:block;}
+@keyframes trainRock{from{transform:translateX(-10px) rotate(-1deg)}to{transform:translateX(10px) rotate(1deg)}}
+.ct-title{font-family:'Cormorant Garant',serif;font-size:3.2rem;font-weight:700;color:var(--gold3);text-align:center;letter-spacing:.06em;line-height:1;text-shadow:0 0 40px rgba(212,168,67,.3);}
+.ct-title em{font-style:italic;color:var(--cream);font-weight:400;}
+.ct-sub{font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;color:var(--text2);}
+.ct-line{width:240px;height:1px;background:linear-gradient(90deg,transparent,var(--gold2),transparent);}
+.ct-bar{width:180px;height:2px;background:rgba(212,168,67,.08);border-radius:2px;overflow:hidden;}
+.ct-fill{height:100%;background:linear-gradient(90deg,var(--gold2),var(--gold3));border-radius:2px;animation:cfill 2.8s cubic-bezier(.4,0,.2,1) forwards;}
+@keyframes cfill{from{width:0}to{width:100%}}
 
-        header { background:rgba(5,5,9,.95); border-bottom:1px solid var(--border); padding:.8rem 2rem; display:flex; justify-content:space-between; align-items:center; }
-        #gtimer { font-family:'Courier Prime', monospace; font-size:1.4rem; color:var(--teal); }
+/* ── HEADER TRAIN PROGRESS ── */
+.train-track-bar{position:relative;height:6px;background:rgba(212,168,67,.06);overflow:visible;}
+.train-track-bar::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(212,168,67,.12) 0,rgba(212,168,67,.12) 6px,transparent 6px,transparent 12px);}
+.train-prog{position:absolute;left:0;top:0;height:100%;background:linear-gradient(90deg,var(--gold2),var(--gold3));transition:width .8s cubic-bezier(.34,1.56,.64,1);box-shadow:0 0 12px rgba(212,168,67,.4);}
+.train-loco{position:absolute;top:-8px;font-size:1.1rem;transition:left .8s cubic-bezier(.34,1.56,.64,1);transform:translateX(-50%);filter:drop-shadow(0 2px 6px rgba(212,168,67,.5));line-height:1;}
 
-        .layout { display:grid; grid-template-columns: 1fr 300px; height:calc(100vh - 60px); }
-        .screen { display:none; padding: 2rem; overflow-y:auto; }
-        .screen.active { display:block; }
+/* ── HEADER ── */
+header{position:sticky;top:0;z-index:100;background:rgba(5,5,9,.95);border-bottom:1px solid var(--border);backdrop-filter:blur(16px);}
+.header-main{display:flex;align-items:center;justify-content:space-between;padding:.8rem 2rem;}
+.logo{font-family:'Cormorant Garant',serif;font-size:1.25rem;font-weight:700;color:var(--gold3);display:flex;align-items:center;gap:.65rem;letter-spacing:.04em;}
+.logo-loco{font-size:1.2rem;animation:trainRock 2.5s ease-in-out infinite alternate;}
+.logo em{font-style:italic;color:var(--cream);font-weight:400;}
+#gtimer{font-family:'Courier Prime',monospace;font-size:1.4rem;font-weight:700;color:var(--teal);letter-spacing:.08em;text-shadow:0 0 20px rgba(0,184,169,.4);transition:color .3s,text-shadow .3s;}
+#gtimer.warn{color:#f59e0b;text-shadow:0 0 20px rgba(245,158,11,.4);animation:tpulse .85s infinite;}
+#gtimer.danger{color:var(--red);text-shadow:0 0 20px rgba(204,58,58,.5);animation:tpulse .4s infinite;}
+@keyframes tpulse{0%,100%{opacity:1}50%{opacity:.2}}
+.hdr-r{display:flex;align-items:center;gap:.9rem;}
+.badge{display:flex;align-items:center;gap:.4rem;background:var(--gold-pale);border:1px solid var(--border);border-radius:20px;padding:.28rem .85rem;font-size:.72rem;color:var(--text2);}
+.pdot{width:6px;height:6px;border-radius:50%;background:#4ade80;animation:blink 1.4s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.05}}
 
-        /* WORD SEARCH GRID */
-        .ws-grid { font-family:'Courier Prime', monospace; font-size:1.1rem; line-height:1.7; letter-spacing:0.5em; text-align:center; background:rgba(255,255,255,0.03); padding:1.5rem; border:1px solid var(--border); border-radius:4px; margin-top:1rem; }
-        .ws-inputs { margin-top:2rem; text-align:center; }
-        input[type="text"] { width:80%; padding:1rem; background:rgba(255,255,255,0.05); border:1px solid var(--gold); color:white; text-align:center; font-size:1.2rem; margin-top:10px; }
-        
-        /* SIDEBAR */
-        aside { padding:1.5rem; background:rgba(0,0,0,0.2); border-left:1px solid var(--border); }
-        #leaderboard-list { list-style:none; font-size:0.8rem; color:var(--teal); margin-top:1rem; }
-        #leaderboard-list li { margin-bottom: 8px; border-bottom: 1px solid rgba(0,184,169,0.1); padding-bottom: 4px; }
+/* ── SOUND TOGGLE ── */
+.snd-btn{background:rgba(212,168,67,.06);border:1px solid var(--border);border-radius:20px;padding:.28rem .75rem;font-size:.72rem;color:var(--text2);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:.3rem;}
+.snd-btn:hover{background:rgba(212,168,67,.14);color:var(--gold);}
+.snd-btn.muted{opacity:.4;}
 
-        /* SUCCESS SCREEN */
-        .comp-card { text-align:center; padding:3rem; border:1px solid var(--gold); background:rgba(212,168,67,0.05); max-width:500px; margin: 2rem auto; }
-        .comp-time { font-family:'Courier Prime'; font-size:3.5rem; color:#4ade80; margin:1rem 0; }
-    </style>
+/* ── LAYOUT ── */
+.layout{display:grid;grid-template-columns:1fr 288px;min-height:calc(100vh - 76px);}
+.story{overflow-y:auto;position:relative;z-index:1;}
+.sidebar{padding:1.2rem;background:rgba(5,5,9,.9);border-left:1px solid var(--border);display:flex;flex-direction:column;gap:1.1rem;position:sticky;top:76px;height:calc(100vh - 76px);overflow-y:auto;}
+
+/* ── SCREENS ── */
+.screen{display:none;}
+.screen.active{display:block;}
+.chapter{display:none;opacity:0;transform:translateX(20px);transition:opacity .65s ease,transform .65s ease;}
+.chapter.active{display:block;}
+.chapter.vis{opacity:1;transform:translateX(0);}
+
+/* ── JOIN SCREEN ── */
+#join-screen{min-height:calc(100vh - 76px);display:none;position:relative;overflow:hidden;background:radial-gradient(ellipse at 20% 50%,rgba(212,168,67,.05) 0%,transparent 50%),radial-gradient(ellipse at 85% 20%,rgba(0,184,169,.04) 0%,transparent 45%),var(--void);}
+#join-screen.active{display:flex;align-items:center;justify-content:center;padding:2rem;}
+.deco-corner{position:absolute;pointer-events:none;opacity:.15;}
+.deco-corner.tl{top:20px;left:20px;}.deco-corner.tr{top:20px;right:20px;transform:scaleX(-1);}
+.deco-corner.bl{bottom:20px;left:20px;transform:scaleY(-1);}.deco-corner.br{bottom:20px;right:20px;transform:scale(-1,-1);}
+.jcard{position:relative;z-index:2;text-align:center;max-width:520px;width:95%;padding:3.2rem 2.8rem;background:rgba(212,168,67,.025);border:1px solid var(--border);border-radius:4px;box-shadow:0 0 0 1px rgba(212,168,67,.05),0 30px 80px rgba(0,0,0,.6);}
+.jcard::before{content:'';position:absolute;inset:8px;border:1px solid rgba(212,168,67,.06);border-radius:2px;pointer-events:none;}
+.j-ornament{font-family:'Cormorant Garant',serif;font-size:.7rem;letter-spacing:.35em;color:var(--gold);opacity:.6;text-transform:uppercase;margin-bottom:1rem;}
+.j-icon{font-size:3.5rem;display:block;margin-bottom:1rem;animation:trainRock 2.5s ease-in-out infinite alternate;}
+.j-title{font-family:'Cormorant Garant',serif;font-size:2.4rem;font-weight:700;color:var(--gold3);line-height:1.1;margin-bottom:.4rem;text-shadow:0 0 30px rgba(212,168,67,.2);}
+.j-title em{font-style:italic;color:var(--cream);font-weight:400;}
+.j-div{width:60px;height:1px;background:linear-gradient(90deg,transparent,var(--gold2),transparent);margin:.8rem auto 1rem;}
+.j-sub{color:var(--text2);font-size:.84rem;line-height:1.78;margin-bottom:2rem;}
+.j-sub strong{color:var(--text);}
+.jfields{display:flex;flex-direction:column;gap:.85rem;margin-bottom:1.1rem;text-align:left;}
+.flabel{font-size:.63rem;text-transform:uppercase;letter-spacing:.14em;color:var(--gold);opacity:.7;margin-bottom:.28rem;}
+.jfields input{width:100%;background:rgba(212,168,67,.03);border:1px solid rgba(212,168,67,.12);border-radius:3px;padding:.82rem 1rem;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none;transition:all .22s;}
+.jfields input:focus{border-color:rgba(0,184,169,.4);background:rgba(0,184,169,.03);box-shadow:0 0 0 3px rgba(0,184,169,.07);}
+.jfields input::placeholder{color:rgba(138,133,120,.5);}
+.code-row{display:flex;gap:.5rem;}
+.code-row input{flex:1;text-transform:uppercase;letter-spacing:.07em;font-family:'Courier Prime',monospace;}
+.genbtn{padding:.82rem .9rem;background:rgba(212,168,67,.06);border:1px solid rgba(212,168,67,.15);border-radius:3px;color:var(--gold);font-family:'DM Sans',sans-serif;font-weight:700;font-size:.72rem;cursor:pointer;white-space:nowrap;transition:all .2s;}
+.genbtn:hover{background:rgba(212,168,67,.14);}
+.hintbox{background:rgba(0,184,169,.04);border:1px solid rgba(0,184,169,.16);border-radius:3px;padding:.85rem 1rem;text-align:left;margin-bottom:1.1rem;font-size:.74rem;line-height:1.7;color:var(--text2);}
+.hintbox strong{color:var(--teal);}
+.board-btn{width:100%;padding:.92rem;background:linear-gradient(135deg,var(--gold2),var(--gold3));border:none;border-radius:3px;color:var(--void);font-family:'Cormorant Garant',serif;font-size:1.05rem;font-weight:700;cursor:pointer;transition:all .25s;letter-spacing:.05em;position:relative;overflow:hidden;}
+.board-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.15),transparent);opacity:0;transition:opacity .2s;}
+.board-btn:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(212,168,67,.28);}
+.board-btn:hover::before{opacity:1;}
+.board-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none;}
+.fbstat{font-size:.68rem;margin-top:.55rem;color:var(--muted);text-align:center;min-height:1.1em;}
+.fbstat.ok{color:#4ade80;}.fbstat.err{color:var(--red);}
+
+/* ── SCENE ── */
+.scene{position:relative;overflow:hidden;padding:4rem 2.8rem 3rem;min-height:260px;display:flex;flex-direction:column;justify-content:flex-end;}
+.scene-bg{position:absolute;inset:0;z-index:0;}
+.scene-vignette{position:absolute;inset:0;z-index:1;background:linear-gradient(0deg,var(--void) 0%,rgba(5,5,9,.5) 50%,rgba(5,5,9,.1) 100%);}
+.scene-content{position:relative;z-index:2;}
+.scene-bignum{font-family:'Cormorant Garant',serif;font-size:9rem;font-weight:700;position:absolute;top:.5rem;right:1.5rem;opacity:.04;line-height:1;color:var(--gold3);pointer-events:none;letter-spacing:-.02em;}
+.scene-tag{font-size:.63rem;text-transform:uppercase;letter-spacing:.18em;color:var(--gold);opacity:.8;margin-bottom:.7rem;display:flex;align-items:center;gap:.6rem;}
+.scene-tag::before{content:'◆';font-size:.4rem;}
+.scene-emoji{font-size:3.5rem;display:block;margin-bottom:.8rem;filter:drop-shadow(0 4px 16px rgba(0,0,0,.6));animation:heroFloat 5s ease-in-out infinite;}
+@keyframes heroFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.scene-title{font-family:'Cormorant Garant',serif;font-size:2.4rem;font-weight:700;color:var(--gold3);line-height:1.1;margin-bottom:.4rem;text-shadow:0 2px 24px rgba(0,0,0,.7);}
+.scene-sub{font-size:.83rem;color:var(--text2);font-style:italic;line-height:1.5;}
+.scene-rule{position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold2),transparent);z-index:2;}
+.bg-night{background:linear-gradient(160deg,#080810 0%,#0f0f22 40%,#080814 100%);}
+.bg-office{background:linear-gradient(160deg,#060e14 0%,#0a1820 40%,#060c12 100%);}
+.bg-mirror{background:linear-gradient(160deg,#0e0908 0%,#1a1208 40%,#0e0908 100%);}
+.bg-cipher{background:linear-gradient(160deg,#0a0814 0%,#12102a 40%,#0a0814 100%);}
+.bg-witness{background:linear-gradient(160deg,#06100e 0%,#0a1814 40%,#060e0c 100%);}
+.bg-decode{background:linear-gradient(160deg,#0a0a14 0%,#101020 40%,#0a0a14 100%);}
+.rain-layer{position:absolute;inset:0;overflow:hidden;pointer-events:none;}
+.rain-drop{position:absolute;width:1px;background:linear-gradient(180deg,transparent,rgba(180,200,255,.15));animation:rainFall linear infinite;}
+@keyframes rainFall{from{transform:translateY(-100px)}to{transform:translateY(400px)}}
+.city-lights{position:absolute;inset:0;pointer-events:none;overflow:hidden;}
+.light-dot{position:absolute;border-radius:50%;animation:lightBlink ease-in-out infinite;}
+@keyframes lightBlink{0%,100%{opacity:.3}50%{opacity:.9}}
+
+/* ── STORY BODY ── */
+.story-body{padding:2.2rem 2.8rem;border-bottom:1px solid var(--border2);}
+.story-body p{font-size:.92rem;color:var(--text2);line-height:1.9;margin-bottom:.9rem;}
+.story-body em{color:var(--text);font-style:italic;}
+.story-body strong{color:var(--gold);font-weight:500;}
+.story-body p:last-child{margin-bottom:0;}
+.pull-quote{margin:1.2rem 0;padding:1.1rem 1.5rem;border-left:3px solid var(--gold2);background:rgba(212,168,67,.03);font-family:'Cormorant Garant',serif;font-size:1.1rem;font-style:italic;color:var(--cream);line-height:1.65;}
+.pull-quote cite{display:block;font-size:.7rem;font-style:normal;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);margin-top:.5rem;}
+
+/* ── DIALOGUE ── */
+.dialogue-wrap{padding:1.5rem 2.8rem;display:flex;flex-direction:column;gap:.8rem;}
+.bubble{max-width:78%;padding:.9rem 1.15rem;border-radius:3px;font-size:.85rem;line-height:1.7;animation:bubIn .5s cubic-bezier(.34,1.56,.64,1);}
+@keyframes bubIn{from{transform:scale(.82) translateY(14px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+.bubble-label{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:.3rem;}
+.bubble.intercom{background:rgba(139,92,246,.06);border:1px solid rgba(139,92,246,.18);align-self:flex-start;color:var(--text2);}
+.bubble.intercom .bubble-label{color:var(--purple);}
+.bubble.you{background:var(--teal-g);border:1px solid rgba(0,184,169,.18);align-self:flex-end;color:var(--text);}
+.bubble.you .bubble-label{color:var(--teal);}
+.bubble.narrator{background:var(--gold-pale);border:1px solid var(--border);align-self:flex-start;color:var(--text2);}
+.bubble.narrator .bubble-label{color:var(--gold);}
+
+/* ── CONTINUE BTN ── */
+.ch-footer{padding:1.5rem 2.8rem 2.5rem;}
+.cont-btn{display:inline-flex;align-items:center;gap:.7rem;padding:.85rem 2rem;background:rgba(212,168,67,.05);border:1px solid rgba(212,168,67,.2);border-radius:3px;color:var(--gold3);font-family:'Cormorant Garant',serif;font-size:1rem;font-weight:700;cursor:pointer;transition:all .25s;letter-spacing:.04em;position:relative;overflow:hidden;}
+.cont-btn::before{content:'';position:absolute;left:-100%;top:0;bottom:0;width:100%;background:linear-gradient(90deg,transparent,rgba(212,168,67,.07),transparent);transition:left .45s;}
+.cont-btn:hover::before{left:100%;}
+.cont-btn:hover{background:rgba(212,168,67,.1);border-color:rgba(212,168,67,.38);transform:translateX(6px);box-shadow:0 0 20px rgba(212,168,67,.1);}
+.arr{transition:transform .25s;}
+.cont-btn:hover .arr{transform:translateX(6px);}
+
+/* ── PUZZLE CARDS ── */
+.puzzle-wrap{padding:0 2.2rem 2.2rem;}
+.pcard{background:var(--card);border:1px solid var(--border);border-radius:4px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.5);animation:cardSlideIn .5s cubic-bezier(.34,1.2,.64,1);}
+@keyframes cardSlideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.pcard-hdr{padding:1.05rem 1.5rem;background:rgba(212,168,67,.04);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.7rem;}
+.pcard-ico{font-size:1.1rem;}
+.pcard-lbl{font-size:.64rem;text-transform:uppercase;letter-spacing:.15em;color:var(--gold);font-weight:700;}
+.pcard-body{padding:1.5rem;}
+.p-case{background:rgba(212,168,67,.025);border-left:3px solid var(--gold2);padding:.95rem 1.15rem;border-radius:0 4px 4px 0;font-size:.83rem;color:var(--text2);line-height:1.78;margin-bottom:1.15rem;font-style:italic;}
+.p-q{font-family:'Cormorant Garant',serif;font-size:1.05rem;color:var(--cream);margin-bottom:.5rem;line-height:1.5;}
+.p-hint{font-size:.74rem;color:var(--muted);margin-bottom:1rem;font-style:italic;}
+.p-fitb{font-family:'Cormorant Garant',serif;font-size:1rem;color:var(--cream);line-height:1.75;margin-bottom:1.1rem;}
+.blank{display:inline-block;min-width:110px;border-bottom:2px solid var(--gold2);color:var(--gold3);font-weight:700;text-align:center;vertical-align:bottom;height:1.6em;padding:0 .35rem;transition:all .5s;font-family:'Cormorant Garant',serif;}
+.blank.filled{border-color:var(--teal);color:var(--teal);}
+.opts{display:flex;flex-direction:column;gap:.52rem;}
+.opt{width:100%;text-align:left;background:rgba(212,168,67,.02);border:1.5px solid rgba(212,168,67,.08);border-radius:3px;padding:.76rem 1rem;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:.84rem;cursor:pointer;transition:all .22s;display:flex;align-items:flex-start;gap:.7rem;line-height:1.55;}
+.opt:hover:not(:disabled){border-color:rgba(0,184,169,.38);background:rgba(0,184,169,.05);color:var(--cream);transform:translateX(4px);}
+.opt.correct{border-color:rgba(45,170,158,.45);background:var(--green-g);color:var(--teal);}
+.opt.wrong{border-color:rgba(204,58,58,.38);background:var(--red-g);color:var(--red);}
+.opt:disabled{cursor:not-allowed;}
+.oletter{min-width:26px;height:26px;border-radius:3px;background:rgba(212,168,67,.06);border:1px solid rgba(212,168,67,.12);display:flex;align-items:center;justify-content:center;font-family:'Courier Prime',monospace;font-weight:700;font-size:.66rem;flex-shrink:0;color:var(--gold);transition:all .22s;margin-top:1px;}
+.opt.correct .oletter{background:rgba(45,170,158,.16);border-color:rgba(45,170,158,.35);color:var(--teal);}
+.opt.wrong .oletter{background:rgba(204,58,58,.12);border-color:rgba(204,58,58,.28);color:var(--red);}
+.feedback{display:none;border-radius:3px;padding:.88rem 1.05rem;font-size:.8rem;line-height:1.68;margin-top:.88rem;}
+.feedback.show{display:block;animation:fUp .4s ease;}
+@keyframes fUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.feedback.correct{background:var(--green-g);border:1px solid rgba(45,170,158,.2);color:var(--teal);}
+.feedback.wrong{background:var(--red-g);border:1px solid rgba(204,58,58,.18);color:var(--red);}
+.nxt-btn{display:none;margin-top:1.1rem;padding:.72rem 1.5rem;background:linear-gradient(135deg,var(--gold2),var(--gold3));color:var(--void);border:none;border-radius:3px;font-family:'Cormorant Garant',serif;font-size:.9rem;font-weight:700;cursor:pointer;transition:all .22s;letter-spacing:.03em;}
+.nxt-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(212,168,67,.25);}
+.sub-btn{padding:.74rem 1.5rem;background:linear-gradient(135deg,var(--teal2),var(--teal));color:#fff;border:none;border-radius:3px;font-family:'DM Sans',sans-serif;font-size:.84rem;font-weight:700;cursor:pointer;transition:all .22s;letter-spacing:.02em;}
+.sub-btn:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,184,169,.25);}
+
+/* ══════════════════════════════════════
+   CIPHER DECODER — CARRIAGE 3
+══════════════════════════════════════ */
+.cipher-wrap{padding:0 2.2rem 2.2rem;}
+.cipher-score{text-align:right;font-family:'Courier Prime',monospace;font-size:.72rem;color:var(--teal);margin-bottom:.8rem;letter-spacing:.08em;}
+.cipher-card{background:var(--card);border:1px solid var(--border);border-radius:4px;overflow:hidden;margin-bottom:1rem;animation:cardSlideIn .4s ease;}
+.cipher-hdr{padding:.85rem 1.2rem;background:rgba(212,168,67,.04);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.cipher-num{font-family:'Courier Prime',monospace;font-size:.65rem;color:var(--gold);letter-spacing:.1em;}
+.cipher-status{font-size:.7rem;padding:.15rem .5rem;border-radius:2px;font-weight:700;letter-spacing:.06em;}
+.cipher-status.locked{background:rgba(86,80,80,.15);color:var(--muted);}
+.cipher-status.active{background:rgba(0,184,169,.1);color:var(--teal);border:1px solid rgba(0,184,169,.2);}
+.cipher-status.solved{background:rgba(45,170,158,.1);color:var(--teal);border:1px solid rgba(45,170,158,.2);}
+.cipher-body{padding:1.2rem 1.5rem;}
+.cipher-desc{font-size:.78rem;color:var(--text2);line-height:1.7;margin-bottom:1rem;font-style:italic;border-left:2px solid rgba(212,168,67,.15);padding-left:.8rem;}
+/* Scrambled letters display */
+.cipher-letters{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:1.1rem;justify-content:center;}
+.c-letter{
+  width:38px;height:48px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Courier Prime',monospace;font-size:1.3rem;font-weight:700;
+  background:rgba(139,92,246,.06);
+  border:1.5px solid rgba(139,92,246,.2);
+  border-radius:4px;color:var(--cream);
+  cursor:pointer;
+  transition:all .18s;
+  position:relative;
+  user-select:none;
+}
+.c-letter:hover{background:rgba(139,92,246,.14);border-color:rgba(139,92,246,.45);transform:translateY(-3px);box-shadow:0 4px 14px rgba(139,92,246,.2);}
+.c-letter.selected{background:rgba(212,168,67,.12);border-color:var(--gold);color:var(--gold3);transform:translateY(-5px);box-shadow:0 6px 18px rgba(212,168,67,.25);}
+.c-letter.used{opacity:.25;cursor:not-allowed;transform:none;}
+.c-letter.correct-flash{background:rgba(45,170,158,.18);border-color:var(--teal);color:var(--teal);animation:correctPop .5s ease;}
+@keyframes correctPop{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px) scale(1.1)}}
+/* Answer slots */
+.cipher-slots{display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:1rem;justify-content:center;min-height:52px;}
+.c-slot{
+  width:38px;height:48px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Courier Prime',monospace;font-size:1.3rem;font-weight:700;
+  border-bottom:2.5px solid rgba(212,168,67,.3);
+  color:var(--gold3);
+  cursor:pointer;
+  transition:all .18s;
+  position:relative;
+}
+.c-slot.filled{border-color:var(--gold);background:rgba(212,168,67,.04);}
+.c-slot:hover.filled{background:rgba(204,58,58,.06);border-color:rgba(204,58,58,.4);color:var(--red);}
+.c-slot.space-gap{width:14px;border:none;cursor:default;}
+/* Cipher controls */
+.cipher-controls{display:flex;gap:.6rem;align-items:center;margin-top:.5rem;}
+.cipher-clear{background:none;border:1px solid rgba(212,168,67,.15);border-radius:3px;padding:.42rem .85rem;color:var(--text2);font-size:.72rem;cursor:pointer;transition:all .2s;}
+.cipher-clear:hover{border-color:rgba(204,58,58,.35);color:var(--red);}
+.cipher-check{padding:.42rem 1.1rem;background:linear-gradient(135deg,var(--teal2),var(--teal));color:#fff;border:none;border-radius:3px;font-size:.75rem;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.04em;}
+.cipher-check:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,184,169,.25);}
+.cipher-hint-btn{background:none;border:1px solid rgba(212,168,67,.12);border-radius:3px;padding:.42rem .85rem;color:var(--muted);font-size:.72rem;cursor:pointer;transition:all .2s;margin-left:auto;}
+.cipher-hint-btn:hover{color:var(--gold);border-color:rgba(212,168,67,.3);}
+.cipher-hint-text{display:none;font-size:.72rem;color:var(--gold);font-style:italic;margin-top:.6rem;padding:.5rem .75rem;background:rgba(212,168,67,.04);border-radius:3px;border:1px solid rgba(212,168,67,.1);}
+.cipher-hint-text.shown{display:block;animation:fUp .3s ease;}
+.cipher-fb{display:none;font-size:.78rem;padding:.7rem .9rem;border-radius:3px;margin-top:.7rem;line-height:1.6;}
+.cipher-fb.show{display:block;animation:fUp .35s ease;}
+.cipher-fb.ok{background:var(--green-g);border:1px solid rgba(45,170,158,.2);color:var(--teal);}
+.cipher-fb.bad{background:var(--red-g);border:1px solid rgba(204,58,58,.15);color:var(--red);}
+/* Progress bar for cipher */
+.cipher-prog-bar{height:3px;background:rgba(212,168,67,.06);border-radius:2px;margin-bottom:1.2rem;overflow:hidden;}
+.cipher-prog-fill{height:100%;background:linear-gradient(90deg,var(--gold2),var(--gold3));border-radius:2px;transition:width .6s ease;}
+/* Proceed button */
+.cipher-proceed{display:none;width:100%;padding:.85rem;background:linear-gradient(135deg,var(--gold2),var(--gold3));color:var(--void);border:none;border-radius:3px;font-family:'Cormorant Garant',serif;font-size:1rem;font-weight:700;cursor:pointer;letter-spacing:.05em;transition:all .22s;margin-top:1rem;}
+.cipher-proceed:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(212,168,67,.3);}
+
+/* ── REVEAL ── */
+.reveal{display:none;margin-top:1.4rem;animation:fUp .55s ease;}
+.reveal.shown{display:block;}
+.illus{text-align:center;padding:1.8rem 2.8rem 1rem;}
+.illus-big{font-size:7rem;display:inline-block;animation:floatBob 5s ease-in-out infinite;filter:drop-shadow(0 8px 24px rgba(0,0,0,.6));}
+@keyframes floatBob{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-18px) rotate(2deg)}}
+.illus-cap{font-size:.74rem;color:var(--muted);margin-top:.7rem;font-style:italic;letter-spacing:.04em;}
+.ch-divider{display:flex;align-items:center;gap:1rem;padding:.7rem 2.8rem;opacity:.4;}
+.ch-divider-line{flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--gold2),transparent);}
+.ch-divider-gem{color:var(--gold);font-size:.5rem;}
+.ch-strip{background:rgba(212,168,67,.025);border-bottom:1px solid var(--border2);padding:.6rem 2.8rem;display:flex;align-items:center;gap:.45rem;}
+.pip{width:8px;height:8px;border-radius:50%;border:1.5px solid rgba(212,168,67,.18);transition:all .4s;}
+.pip.done{background:var(--gold);border-color:var(--gold);}
+.pip.curr{background:var(--teal);border-color:var(--teal);box-shadow:0 0 8px rgba(0,184,169,.5);animation:blink .9s infinite;}
+.strip-lbl{font-size:.62rem;color:var(--muted);margin-left:auto;letter-spacing:.06em;font-family:'Courier Prime',monospace;}
+
+/* ── BURST ── */
+#burst{position:fixed;inset:0;pointer-events:none;z-index:600;}
+.bp{position:absolute;border-radius:50%;animation:bpanim ease-out forwards;}
+@keyframes bpanim{from{opacity:1;transform:translate(-50%,-50%) scale(1.2)}to{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(0)}}
+
+/* ── COMPLETE ── */
+#complete-screen{display:none;min-height:calc(100vh - 76px);background:radial-gradient(ellipse at center,rgba(212,168,67,.06) 0%,transparent 65%),var(--void);}
+#complete-screen.active{display:flex;align-items:center;justify-content:center;padding:3rem 2rem;}
+.comp-card{text-align:center;max-width:580px;padding:3.2rem 2.8rem;background:rgba(212,168,67,.025);border:1px solid var(--border);border-radius:4px;box-shadow:0 30px 80px rgba(0,0,0,.6);position:relative;}
+.comp-card::before{content:'';position:absolute;inset:8px;border:1px solid rgba(212,168,67,.05);border-radius:2px;pointer-events:none;}
+.comp-trophy{font-size:4rem;display:block;margin-bottom:1rem;animation:bounce .9s infinite alternate;}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-16px)}}
+.comp-ornament{font-family:'Cormorant Garant',serif;font-size:.7rem;letter-spacing:.35em;color:var(--gold);opacity:.6;text-transform:uppercase;margin-bottom:.6rem;}
+.comp-title{font-family:'Cormorant Garant',serif;font-size:2.1rem;font-weight:700;color:var(--gold3);margin-bottom:.3rem;}
+.comp-time{font-family:'Courier Prime',monospace;font-size:3.2rem;font-weight:700;color:#4ade80;text-shadow:0 0 35px rgba(74,222,128,.4);margin:.8rem 0;}
+.comp-rank{font-size:.82rem;color:var(--muted);margin-bottom:1.6rem;font-style:italic;}
+.comp-div{width:80px;height:1px;background:linear-gradient(90deg,transparent,var(--gold2),transparent);margin:.5rem auto 1.2rem;}
+.findings{background:rgba(0,184,169,.04);border:1px solid rgba(0,184,169,.12);border-radius:4px;padding:1.4rem;text-align:left;}
+.findings-title{font-family:'Cormorant Garant',serif;font-size:.92rem;font-style:italic;color:var(--teal);margin-bottom:.82rem;}
+.finding{display:flex;gap:.55rem;margin-bottom:.52rem;font-size:.79rem;color:var(--text2);line-height:1.58;}
+.finding-dot{color:var(--gold);flex-shrink:0;}
+.board-again{margin-top:1.6rem;padding:.9rem 2.2rem;background:linear-gradient(135deg,var(--gold2),var(--gold3));border:none;border-radius:3px;color:var(--void);font-family:'Cormorant Garant',serif;font-size:.98rem;font-weight:700;cursor:pointer;transition:all .22s;letter-spacing:.04em;}
+.board-again:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(212,168,67,.3);}
+
+/* ── SIDEBAR ── */
+.lb-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;}
+.lb-title{font-family:'Cormorant Garant',serif;font-size:.95rem;color:var(--gold3);display:flex;align-items:center;gap:.35rem;letter-spacing:.03em;}
+.lb-live{font-size:.58rem;background:rgba(204,58,58,.08);border:1px solid rgba(204,58,58,.25);color:#ff8888;padding:.1rem .42rem;border-radius:2px;animation:blink 2s infinite;letter-spacing:.08em;}
+.lb-list{display:flex;flex-direction:column;gap:.5rem;}
+.lbe{display:flex;align-items:center;gap:.62rem;background:rgba(212,168,67,.02);border:1px solid rgba(212,168,67,.07);border-radius:3px;padding:.62rem .82rem;position:relative;overflow:hidden;transition:all .3s;}
+.lbe::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;}
+.lbe.r1::before{background:var(--gold)}.lbe.r2::before{background:#c0c0c0}.lbe.r3::before{background:#cd7f32}
+.lbe.r1{border-color:rgba(212,168,67,.16);}
+.lbe.new{animation:slideIn .5s cubic-bezier(.34,1.56,.64,1);}
+@keyframes slideIn{from{transform:translateX(44px);opacity:0}to{transform:translateX(0);opacity:1}}
+.lbrank{font-family:'Courier Prime',monospace;font-size:.9rem;min-width:20px;text-align:center;}
+.r1 .lbrank{color:var(--gold)}.r2 .lbrank{color:#c0c0c0}.r3 .lbrank{color:#cd7f32}
+.lbav{width:27px;height:27px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;background:linear-gradient(135deg,var(--teal2),var(--teal));flex-shrink:0;}
+.lbinfo{flex:1;min-width:0;}
+.lbname{font-size:.76rem;font-weight:700;color:var(--cream);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lbsub{font-size:.62rem;color:var(--muted);margin-top:.07rem;}
+.lbtime{font-family:'Courier Prime',monospace;font-size:.78rem;color:#4ade80;}
+.lb-empty{text-align:center;color:var(--muted);font-size:.72rem;padding:1.5rem .5rem;border:1px dashed rgba(212,168,67,.08);border-radius:3px;line-height:1.7;}
+.sb-div{height:1px;background:var(--border2);}
+.tmap{background:rgba(212,168,67,.02);border:1px solid var(--border);border-radius:4px;padding:.9rem;}
+.tmap-title{font-size:.62rem;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);margin-bottom:.82rem;}
+.tmap-stops{display:flex;flex-direction:column;}
+.ts{display:flex;align-items:flex-start;gap:.62rem;padding:.3rem 0;position:relative;}
+.ts::before{content:'';position:absolute;left:8px;top:20px;bottom:-4px;width:1px;background:rgba(212,168,67,.08);}
+.ts:last-child::before{display:none;}
+.ts-node{width:18px;height:18px;border-radius:50%;border:1.5px solid rgba(212,168,67,.16);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;font-size:.58rem;transition:all .45s;color:var(--muted);}
+.ts.done .ts-node{background:var(--gold);border-color:var(--gold);color:var(--void);}
+.ts.curr .ts-node{background:var(--teal);border-color:var(--teal);color:#fff;box-shadow:0 0 10px rgba(0,184,169,.4);animation:blink .85s infinite;}
+.ts-lbl{font-size:.7rem;color:var(--muted);line-height:1.3;transition:color .35s;padding-top:2px;}
+.ts.done .ts-lbl{color:var(--text2);}.ts.curr .ts-lbl{color:var(--cream);font-weight:500;}
+.abox{background:rgba(212,168,67,.02);border:1px solid var(--border);border-radius:4px;padding:.88rem;}
+.abox-title{font-size:.62rem;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);margin-bottom:.6rem;}
+#alist{display:flex;flex-wrap:wrap;gap:.35rem;}
+.achip{font-size:.66rem;background:rgba(0,184,169,.07);border:1px solid rgba(0,184,169,.16);border-radius:2px;padding:.18rem .52rem;color:rgba(0,200,186,.9);}
+
+/* ── TOAST ── */
+#toasts{position:fixed;top:80px;right:1.1rem;display:flex;flex-direction:column;gap:.45rem;z-index:500;}
+.toast{background:var(--surface);border:1px solid var(--border);border-radius:3px;padding:.62rem 1rem;font-size:.76rem;max-width:265px;display:flex;align-items:center;gap:.4rem;color:var(--text2);animation:tIn .28s ease,tOut .3s ease 3.9s forwards;}
+.toast.success{border-color:rgba(74,222,128,.28);}.toast.info{border-color:rgba(0,184,169,.28);}.toast.error{border-color:rgba(204,58,58,.28);}
+@keyframes tIn{from{transform:translateX(44px);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes tOut{to{transform:translateX(44px);opacity:0}}
+
+@media(max-width:768px){
+  .layout{grid-template-columns:1fr;}.sidebar{display:none;}
+  .header-main{padding:.75rem 1.2rem;}
+  .scene{padding:3rem 1.5rem 2rem;min-height:200px;}.scene-bignum{font-size:5rem;}
+  .story-body,.ch-footer,.ch-strip,.dialogue-wrap{padding-left:1.5rem;padding-right:1.5rem;}
+  .puzzle-wrap,.cipher-wrap{padding:0 1.2rem 1.5rem;}
+  .illus{padding:1.2rem 1.5rem .5rem;}
+  .jcard{padding:2.2rem 1.6rem;}.j-title{font-size:1.9rem;}.scene-title{font-size:1.8rem;}
+  #gtimer{font-size:1.1rem;}.ct-title{font-size:2.2rem;}
+  .c-letter,.c-slot{width:32px;height:42px;font-size:1.1rem;}
+}
+</style>
 </head>
 <body>
+<div id="ambient"></div>
+<div id="tracks"><div class="rail r1"></div><div class="rail r2"></div><div class="tie"></div></div>
+<div id="burst"></div>
+<div id="toasts"></div>
 
-    <div id="curtain">
-        <h1 class="ct-title">THE LENS <em>EXPRESS</em></h1>
-        <p style="color:var(--text2); letter-spacing:0.3em; font-size:0.7rem;">PREPARING INVESTIGATION</p>
+<!-- CURTAIN -->
+<div id="curtain">
+  <div class="ct-ornament">◆ &nbsp; Investigation Begins &nbsp; ◆</div>
+  <span class="ct-train">🚂</span>
+  <div class="ct-title">The Lens <em>Express</em></div>
+  <div class="ct-line"></div>
+  <div class="ct-sub">Bias Investigation · All Carriages Boarding</div>
+  <div class="ct-bar"><div class="ct-fill"></div></div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-main">
+    <div class="logo"><span class="logo-loco">🚂</span>The Lens <em>Express</em></div>
+    <div id="gtimer">⏱ 00:00</div>
+    <div class="hdr-r">
+      <button class="snd-btn" id="snd-toggle" onclick="toggleSound()" title="Toggle sound">🔊 Sound</button>
+      <div class="badge"><div class="pdot"></div><span id="badge-name">Not boarded</span></div>
     </div>
+  </div>
+  <div class="train-track-bar">
+    <div class="train-prog" id="train-prog" style="width:0%"></div>
+    <div class="train-loco" id="train-loco" style="left:0%">🚂</div>
+  </div>
+</header>
 
-    <header>
-        <div style="font-family:'Cormorant Garant'; color:var(--gold3); font-weight:700; font-size:1.2rem;">THE LENS <em>EXPRESS</em></div>
-        <div id="gtimer">00:00</div>
-    </header>
+<div class="layout">
+<div class="story" id="story">
 
-    <main class="layout">
-        <section class="story">
-            <div id="join-screen" class="screen active">
-                <div style="max-width:400px; margin:4rem auto; text-align:center;">
-                    <h2 style="font-family:'Cormorant Garant'; font-size:2.2rem; color:var(--gold3);">DETECTIVE LOGIN</h2>
-                    <input type="text" id="p-name" placeholder="Enter Identifying Name...">
-                    <button onclick="startGame()" style="width:80%; padding:1rem; background:var(--gold2); border:none; margin-top:1rem; font-weight:700; cursor:pointer; color:var(--void);">BOARD TRAIN</button>
-                </div>
-            </div>
+<!-- JOIN -->
+<div id="join-screen" class="screen active">
+  <svg class="deco-corner tl" width="60" height="60" viewBox="0 0 60 60" fill="none"><path d="M5 5 L5 30 M5 5 L30 5 M5 15 L15 5 M15 5 L15 15 L5 15" stroke="rgba(212,168,67,.4)" stroke-width="1"/></svg>
+  <svg class="deco-corner tr" width="60" height="60" viewBox="0 0 60 60" fill="none"><path d="M5 5 L5 30 M5 5 L30 5 M5 15 L15 5 M15 5 L15 15 L5 15" stroke="rgba(212,168,67,.4)" stroke-width="1"/></svg>
+  <svg class="deco-corner bl" width="60" height="60" viewBox="0 0 60 60" fill="none"><path d="M5 5 L5 30 M5 5 L30 5 M5 15 L15 5 M15 5 L15 15 L5 15" stroke="rgba(212,168,67,.4)" stroke-width="1"/></svg>
+  <svg class="deco-corner br" width="60" height="60" viewBox="0 0 60 60" fill="none"><path d="M5 5 L5 30 M5 5 L30 5 M5 15 L15 5 M15 5 L15 15 L5 15" stroke="rgba(212,168,67,.4)" stroke-width="1"/></svg>
+  <div class="jcard">
+    <div class="j-ornament">◆ &nbsp; Global Equity Council &nbsp; ◆</div>
+    <span class="j-icon">🚂</span>
+    <div class="j-title">The Lens <em>Express</em></div>
+    <div class="j-div"></div>
+    <p class="j-sub">You are a newly appointed <strong>Bias Investigator</strong>. Tonight you board the legendary Lens Express — a moving investigation chamber where every carriage conceals a case of unconscious bias.</p>
+    <div class="jfields">
+      <div>
+        <div class="flabel">Investigator Name</div>
+        <input type="text" id="inp-name" placeholder="e.g. Detective Morgan…" maxlength="22" onkeydown="if(event.key==='Enter')joinGame()"/>
+      </div>
+      <div>
+        <div class="flabel">Mission Code <span style="opacity:.45;font-size:.58rem">(share with your team)</span></div>
+        <div class="code-row">
+          <input type="text" id="inp-code" placeholder="EXPRESS-4271" maxlength="16"/>
+          <button class="genbtn" onclick="generateCode()">🎲 Generate</button>
+        </div>
+      </div>
+    </div>
+    <div class="hintbox">🔍 <strong>Multiplayer:</strong> One investigator generates a mission code and shares it. Everyone enters the <strong>same code</strong> to join the same live leaderboard.</div>
+    <button class="board-btn" id="join-btn" onclick="joinGame()">🚂 Board the Train</button>
+    <div class="fbstat" id="fbstat"></div>
+  </div>
+</div>
 
-            <div id="game-screen" class="screen">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h2 style="font-family:'Cormorant Garant'; color:var(--gold3);">Manifest Investigation</h2>
-                    <div style="color:var(--teal); font-weight:700;">BIASES FOUND: <span id="count">0</span>/10</div>
-                </div>
-                <div class="ws-grid">
-Z F N S D R M C L H Y E J H A
-S I L I X O X Z S O R L S H A
-P R E T J L T W X R L K T A G
-V S H I P K V K C N O P E L E
-O T V A C E G Y D D E J R O I
-G I Y X C E I Q W T U U E Q S
-D M P N I L G E N D E R R O E
-N P A F F I N I T Y R T Q G S
-T R G C E P N B T H B T Y F I
-A S E D S D R E C E N C Y A M
-K S B K W I T I P E K U E H J
-M I P L P R O X I M I T Y V R
-C O N F O R M I T Y E M I Z T
-A T T R I B U T I O N N N I F
-B L I N D S P O T S E B Y N N
-                </div>
-                <div class="ws-inputs">
-                    <input type="text" id="word-input" placeholder="Type a found bias..." oninput="checkWord(this)">
-                </div>
-            </div>
+<!-- CH0 — BRIEFING -->
+<div id="ch0" class="chapter screen">
+  <div class="scene bg-night">
+    <div class="scene-bg"><div class="city-lights" id="city0"></div><div class="rain-layer" id="rain0"></div></div>
+    <div class="scene-vignette"></div><div class="scene-bignum">00</div><div class="scene-rule"></div>
+    <div class="scene-content">
+      <div class="scene-tag">Prologue · Platform Zero · 11:47 PM</div>
+      <span class="scene-emoji">🌃</span>
+      <div class="scene-title">The Briefing</div>
+      <div class="scene-sub">A stormy evening. A sealed envelope. A train that never stops.</div>
+    </div>
+  </div>
+  <div class="ch-strip" id="strip0"></div>
+  <div class="story-body">
+    <p>The station clock reads <strong>11:47 PM</strong>. Platform Zero. You stand alone in the rain, overcoat soaked, briefcase in hand.</p>
+    <p>A courier in a dark coat materialises from the crowd, presses a sealed envelope into your hands, and vanishes before you can speak. Inside, a single card in gold ink:</p>
+    <div class="pull-quote">"Six carriages. Six cases. Each holds a bias that has quietly derailed a career, closed a door, or erased an opportunity. Your lens is the only thing that can set the record straight. Board now. The train will not wait."</div>
+    <p>The Lens Express hisses at the platform edge, its amber windows cutting through the dark like a string of lanterns. You step aboard.</p>
+  </div>
+  <div class="dialogue-wrap">
+    <div class="bubble intercom"><span class="bubble-label">🎙 Intercom</span>"Welcome, Investigator. Six biases. Six carriages. The truth is never obvious — that is precisely why the world needs investigators like you. Carriage One awaits."</div>
+  </div>
+  <div class="illus"><div class="illus-big">🚂</div><div class="illus-cap">The Lens Express departs into the night…</div></div>
+  <div class="ch-footer"><button class="cont-btn" onclick="goChapter(1)">Enter Carriage One <span class="arr">→</span></button></div>
+</div>
 
-            <div id="success-screen" class="screen">
-                <div class="comp-card">
-                    <h2 style="font-family:'Cormorant Garant'; color:var(--gold3);">CASE CLOSED</h2>
-                    <div class="comp-time" id="final-time">00:00</div>
-                    <p style="color:var(--text2);">All cognitive biases identified. Investigation complete.</p>
-                    <button onclick="location.reload()" style="margin-top:2rem; padding:0.8rem 2rem; border:1px solid var(--gold); background:none; color:var(--gold); cursor:pointer;">NEW CASE</button>
-                </div>
-            </div>
-        </section>
+<!-- CH1 — FIRST IMPRESSION -->
+<div id="ch1" class="chapter screen">
+  <div class="scene bg-office">
+    <div class="scene-vignette"></div><div class="scene-bignum">01</div><div class="scene-rule"></div>
+    <div class="scene-content">
+      <div class="scene-tag">Carriage One · The Interview Car</div>
+      <span class="scene-emoji">👔</span>
+      <div class="scene-title">The Polished Candidate</div>
+      <div class="scene-sub">First impressions are powerful. Are they always accurate?</div>
+    </div>
+  </div>
+  <div class="ch-strip" id="strip1"></div>
+  <div class="story-body">
+    <p>The carriage is styled as a corporate interview room — leather chairs, glass desk, two framed photographs mounted side by side. A brass placard reads: <strong>CASE FILE 001.</strong></p>
+    <p>You open the dossier. <em>"Two candidates applied for a senior engineering role. Their qualifications are <strong>identical</strong> in every measurable way. The hiring manager made her decision within 30 seconds — before reading a single word of their CVs."</em></p>
+    <p>Candidate A: sharp suit, confident professional headshot. Candidate B: casual clothes, natural photo taken outdoors. Equal portfolios. Equal experience. One job. One bias.</p>
+  </div>
+  <div class="illus"><div class="illus-big">👔🤝👕</div><div class="illus-cap">Same qualifications. Different first impressions.</div></div>
+  <div class="puzzle-wrap">
+    <div class="pcard">
+      <div class="pcard-hdr"><span class="pcard-ico">🔍</span><div class="pcard-lbl">Case File 001 · Identify the Bias</div></div>
+      <div class="pcard-body">
+        <div class="p-q">Which bias caused the hiring manager to prefer Candidate A before reviewing any qualifications?</div>
+        <div class="opts" id="q_c1_opts">
+          <button class="opt" onclick="answerQ('c1',0)"><span class="oletter">A</span>Affinity Bias — favouring people who remind you of yourself</button>
+          <button class="opt" onclick="answerQ('c1',1)"><span class="oletter">B</span>First Impression Bias — snap judgements based on appearance, before any evidence is reviewed</button>
+          <button class="opt" onclick="answerQ('c1',2)"><span class="oletter">C</span>Conformity Bias — deferring to what the group already believes</button>
+        </div>
+        <div class="feedback" id="q_c1_fb"></div>
+        <button class="nxt-btn" id="q_c1_next" onclick="goChapter(2)">Move to Carriage Two →</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-        <aside>
-            <h4 style="font-size:0.7rem; color:var(--gold); letter-spacing:0.2em;">LEADERBOARD</h4>
-            <ul id="leaderboard-list">Connecting to station...</ul>
-        </aside>
-    </main>
+<!-- CH2 — AFFINITY -->
+<div id="ch2" class="chapter screen">
+  <div class="scene bg-mirror">
+    <div class="scene-vignette"></div><div class="scene-bignum">02</div><div class="scene-rule"></div>
+    <div class="scene-content">
+      <div class="scene-tag">Carriage Two · The Mentorship Car</div>
+      <span class="scene-emoji">🪞</span>
+      <div class="scene-title">The Mirror Effect</div>
+      <div class="scene-sub">We elevate those who reflect our own story back at us.</div>
+    </div>
+  </div>
+  <div class="ch-strip" id="strip2"></div>
+  <div class="story-body">
+    <p>This carriage is warmer — walls lined with decades of framed mentor–mentee photographs, each pair beaming. A dossier rests on the velvet seat. <strong>CASE FILE 002.</strong></p>
+    <p>You read: <em>"A senior manager must nominate one analyst for the company's high-potential leadership programme. Two analysts have near-identical performance records. She nominates Priya — who attended the same university, shares the same sport, and communicates in the same way the manager herself did ten years ago."</em></p>
+    <p>The other analyst, Marcus — equally qualified, equally performing — receives no nomination, no feedback, no explanation. Six months later, he leaves the company.</p>
+  </div>
+  <div class="dialogue-wrap">
+    <div class="bubble you"><span class="bubble-label">🕵️ Manager</span>"She genuinely deserves this. She reminds me so much of myself when I was starting out."</div>
+    <div class="bubble narrator"><span class="bubble-label">🎙 Narrator</span>Well-intentioned. Quietly devastating for Marcus. This is how bias hides in plain sight.</div>
+  </div>
+  <div class="puzzle-wrap">
+    <div class="pcard">
+      <div class="pcard-hdr"><span class="pcard-ico">🔍</span><div class="pcard-lbl">Case File 002 · Identify the Bias</div></div>
+      <div class="pcard-body">
+        <div class="p-q">What unconscious bias is shaping the manager's nomination?</div>
+        <div class="opts" id="q_c2_opts">
+          <button class="opt" onclick="answerQ('c2',0)"><span class="oletter">A</span>Recency Bias — over-weighting the most recent information we've received</button>
+          <button class="opt" onclick="answerQ('c2',1)"><span class="oletter">B</span>Affinity Bias — championing people who remind us of our own story</button>
+          <button class="opt" onclick="answerQ('c2',2)"><span class="oletter">C</span>Halo Effect — letting one positive trait inflate all other judgements</button>
+        </div>
+        <div class="feedback" id="q_c2_fb"></div>
+        <button class="nxt-btn" id="q_c2_next" onclick="goChapter(3)">Move to Carriage Three →</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-    <script>
-        // CONFIGURATION FROM YOUR FIREBASE SETUP
-        const firebaseConfig = {
-            apiKey: "AIzaSyDU-6D6LyvmUTkf-WpKSLkhyeTRCrFc9o4",
-            authDomain: "lensexpress-cfc78.firebaseapp.com",
-            databaseURL: "https://lensexpress-cfc78-default-rtdb.firebaseio.com",
-            projectId: "lensexpress-cfc78",
-            storageBucket: "lensexpress-cfc78.firebasestorage.app",
-            messagingSenderId: "1058177027648",
-            appId: "1:1058177027648:web:cbf9013e65c950db1c99a5"
-        };
+<!-- CH3 — CIPHER DECODER -->
+<div id="ch3" class="chapter screen">
+  <div class="scene bg-cipher">
+    <div class="scene-vignette"></div><div class="scene-bignum">03</div><div class="scene-rule"></div>
+    <div class="scene-content">
+      <div class="scene-tag">Carriage Three · The Cipher Car</div>
+      <span class="scene-emoji">🔐</span>
+      <div class="scene-title">The Encoded Files</div>
+      <div class="scene-sub">Every bias has been deliberately scrambled. Unscramble them to proceed.</div>
+    </div>
+  </div>
+  <div class="ch-strip" id="strip3"></div>
+  <div class="story-body">
+    <p>The carriage smells of old paper and cold iron. A single gas lamp swings above a desk strewn with coded documents. Someone has deliberately scrambled the names of six dangerous biases.</p>
+    <div class="pull-quote">"Decode at least 4 of 6 scrambled biases to unlock the next carriage. Click letters to build your answer."<cite>— The Archivist</cite></div>
+    <p>You sit down, sharpen your pencil, and begin to decode.</p>
+  </div>
+  <div class="illus"><div class="illus-big">🔐</div><div class="illus-cap">The truth lies scrambled. Decode it.</div></div>
 
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+  <div class="cipher-wrap">
+    <div class="cipher-score">DECODED: <span id="cipher-count">0</span> / 6</div>
+    <div class="cipher-prog-bar"><div class="cipher-prog-fill" id="cipher-prog" style="width:0%"></div></div>
+    <div id="cipher-puzzles"></div>
+    <button class="cipher-proceed" id="cipher-proceed" onclick="goChapter(4)">🚂 Proceed to Carriage Four →</button>
+  </div>
+</div>
 
-        let playerName = "";
-        let seconds = 0;
-        let timerInterval;
-        let foundWords = [];
-        const targetWords = ["AFFINITY", "HALO", "RECENCY", "PROXIMITY", "CONFORMITY", "ANCHOR", "GENDER", "ATTRIBUTION", "STEREOTYPE", "BLINDSPOT"];
+<!-- CH4 — THREE TESTIMONIES -->
+<div id="ch4" class="chapter screen">
+  <div class="scene bg-witness">
+    <div class="scene-vignette"></div><div class="scene-bignum">04</div><div class="scene-rule"></div>
+    <div class="scene-content">
+      <div class="scene-tag">Carriage Four · The Witness Car</div>
+      <span class="scene-emoji">👁️</span>
+      <div class="scene-title">Three Testimonies</div>
+      <div class="scene-sub">Three witnesses. Three hidden biases. All disguised as ordinary workplace logic.</div>
+    </div>
+  </div>
+  <div class="ch-strip" id="strip4"></div>
+  <div class="story-body">
+    <p>A round table dominates this carriage. Three sealed dossiers are arranged before you, each bearing an identical handwritten label:</p>
+    <div class="pull-quote">"Something is wrong here. We just cannot name it."</div>
+    <p>That is your job. Name it. Three dossiers. Three biases. Open them one by one.</p>
+  </div>
+  <div class="puzzle-wrap">
+    <div class="pcard">
+      <div class="pcard-hdr"><span class="pcard-ico">📋</span><div class="pcard-lbl">Testimony One · The Performance Review · Case 004-A</div></div>
+      <div class="pcard-body">
+        <div class="p-case">"Jordan absolutely crushed the all-hands presentation last month. Outstanding delivery. Based on that, I've rated Jordan top across every competency — communication, strategic thinking, technical skill, leadership. Everything."</div>
+        <div class="p-q">Which bias has distorted this performance review?</div>
+        <div class="opts" id="q_t1_opts">
+          <button class="opt" onclick="answerQ('t1',0)"><span class="oletter">A</span>Confirmation Bias — seeking information that confirms existing beliefs</button>
+          <button class="opt" onclick="answerQ('t1',1)"><span class="oletter">B</span>Halo Effect — one standout moment inflating ratings across all unrelated competencies</button>
+          <button class="opt" onclick="answerQ('t1',2)"><span class="oletter">C</span>Attribution Bias — crediting outcomes to the wrong causes</button>
+        </div>
+        <div class="feedback" id="q_t1_fb"></div>
+        <button class="nxt-btn" id="q_t1_next" onclick="showReveal('r_t2')">Open Next Dossier →</button>
+      </div>
+    </div>
+  </div>
+  <div class="reveal" id="r_t2">
+    <div class="ch-divider"><div class="ch-divider-line"></div><div class="ch-divider-gem">◆</div><div class="ch-divider-line"></div></div>
+    <div class="puzzle-wrap">
+      <div class="pcard">
+        <div class="pcard-hdr"><span class="pcard-ico">📋</span><div class="pcard-lbl">Testimony Two · The Attribution Gap · Case 004-B</div></div>
+        <div class="pcard-body">
+          <div class="p-case">"Sam missed Q3 targets — but the market was brutal, anyone would have struggled." / "Alex also missed Q3. Clearly doesn't have what it takes." Both worked in identical conditions with identical resources.</div>
+          <div class="p-q">What bias is driving two opposite explanations for the same outcome?</div>
+          <div class="opts" id="q_t2_opts">
+            <button class="opt" onclick="answerQ('t2',0)"><span class="oletter">A</span>In-group Bias — excusing in-group failures as bad luck; attributing out-group failures to personal flaws</button>
+            <button class="opt" onclick="answerQ('t2',1)"><span class="oletter">B</span>Proximity Bias — favouring people who are physically close</button>
+            <button class="opt" onclick="answerQ('t2',2)"><span class="oletter">C</span>Anchoring Bias — relying too heavily on the first piece of information</button>
+          </div>
+          <div class="feedback" id="q_t2_fb"></div>
+          <button class="nxt-btn" id="q_t2_next" onclick="showReveal('r_t3')">Open Final Dossier →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="reveal" id="r_t3">
+    <div class="ch-divider"><div class="ch-divider-line"></div><div class="ch-divider-gem">◆</div><div class="ch-divider-line"></div></div>
+    <div class="puzzle-wrap">
+      <div class="pcard">
+        <div class="pcard-hdr"><span class="pcard-ico">📋</span><div class="pcard-lbl">Testimony Three · The Remote Worker · Case 004-C</div></div>
+        <div class="pcard-body">
+          <div class="p-case">"Leila has worked remotely for 18 months — same output, same hours, same results as every office-based peer. She has been passed over for promotion twice. Her manager's only explanation: 'Visibility matters around here.'"</div>
+          <div class="p-q">Which bias is systematically disadvantaging Leila?</div>
+          <div class="opts" id="q_t3_opts">
+            <button class="opt" onclick="answerQ('t3',0)"><span class="oletter">A</span>Recency Bias — over-weighting recent performance</button>
+            <button class="opt" onclick="answerQ('t3',1)"><span class="oletter">B</span>Stereotype Bias — applying group assumptions to an individual</button>
+            <button class="opt" onclick="answerQ('t3',2)"><span class="oletter">C</span>Proximity Bias — assuming visible = more committed or productive</button>
+          </div>
+          <div class="feedback" id="q_t3_fb"></div>
+          <button class="nxt-btn" id="q_t3_next" onclick="goChapter(5)">Move to Carriage Five →</button>
+        </div>
+      </div>
+    </div>
+    <div class="illus" style="margin-top:.5rem"><div class="illus-big">⚖️</div><div class="illus-cap">Same result. Different verdict. That is bias.</div></div>
+  </div>
+</div>
 
-        function startGame() {
-            playerName = document.getElementById('p-name').value;
-            if(!playerName) return alert("Identify yourself, Detective!");
-            document.getElementById('join-screen').classList.remove('active');
-            document.getElementById('game-screen').classList.add('active');
-            startTimer();
-        }
+<!-- CH5 — FILL IN THE BLANK -->
+<div id="ch5" class="chapter screen">
+  <div class="scene bg-decode">
+    <div class="scene-vignette"></div><div class="scene-bignum">05</div><div class="scene-rule"></div>
+    <div class="scene-content">
+      <div class="scene-tag">Carriage Five · The Decoder Car · Final Carriage</div>
+      <span class="scene-emoji">🧩</span>
+      <div class="scene-title">Restore the Redacted Files</div>
+      <div class="scene-sub">Three documents. Key terms blacked out. You have one shot.</div>
+    </div>
+  </div>
+  <div class="ch-strip" id="strip5"></div>
+  <div class="story-body">
+    <p>The final evidence room. Three redacted documents are pinned to the board — critical terms blacked out by an unknown hand. Restore each one correctly and a signal transmits to the engine room.</p>
+    <p><strong>Restore all three. Close all six cases. Reach the Final Station.</strong></p>
+  </div>
+  <div class="puzzle-wrap">
+    <div class="pcard">
+      <div class="pcard-hdr"><span class="pcard-ico">✏️</span><div class="pcard-lbl">Redacted Document · 1 of 3</div></div>
+      <div class="pcard-body">
+        <div class="p-fitb">Rohan speaks over colleagues in every meeting. When three teammates raise this with him separately, he dismisses each one. He likely has a <span class="blank" id="b1">_________</span> — an area completely invisible to himself, yet clearly visible to those around him.</div>
+        <div class="p-hint">💡 Hint: A word for areas unknown to a person, but known to others. Think of a car analogy.</div>
+        <div class="opts" id="q_f1_opts">
+          <button class="opt" onclick="answerFitb('f1',0,'Blindspot')"><span class="oletter">A</span>Blindspot</button>
+          <button class="opt" onclick="answerFitb('f1',1,'Discrimination')"><span class="oletter">B</span>Discrimination</button>
+          <button class="opt" onclick="answerFitb('f1',2,'Awareness')"><span class="oletter">C</span>Awareness</button>
+        </div>
+        <div class="feedback" id="q_f1_fb"></div>
+      </div>
+    </div>
+  </div>
+  <div id="fw2" style="margin-top:1rem;opacity:.28;pointer-events:none;transition:opacity .6s,transform .6s;transform:translateY(10px)">
+    <div class="puzzle-wrap">
+      <div class="pcard">
+        <div class="pcard-hdr"><span class="pcard-ico">✏️</span><div class="pcard-lbl">Redacted Document · 2 of 3</div></div>
+        <div class="pcard-body">
+          <div class="p-fitb"><span class="blank" id="b2">_________</span> is the mistaken assumption that employees who are physically present in an office are inherently more committed or productive than those working remotely or on flexible schedules.</div>
+          <div class="opts" id="q_f2_opts">
+            <button class="opt" onclick="answerFitb('f2',0,'Proximity Bias')"><span class="oletter">A</span>Proximity Bias</button>
+            <button class="opt" onclick="answerFitb('f2',1,'Authority Bias')"><span class="oletter">B</span>Authority Bias</button>
+            <button class="opt" onclick="answerFitb('f2',2,'Conformity Bias')"><span class="oletter">C</span>Conformity Bias</button>
+          </div>
+          <div class="feedback" id="q_f2_fb"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="fw3" style="margin-top:1rem;opacity:.28;pointer-events:none;transition:opacity .6s,transform .6s;transform:translateY(10px)">
+    <div class="puzzle-wrap">
+      <div class="pcard">
+        <div class="pcard-hdr"><span class="pcard-ico">✏️</span><div class="pcard-lbl">Redacted Document · 3 of 3 · Final Signal</div></div>
+        <div class="pcard-body">
+          <div class="p-fitb">"Everyone from that department resists change." This sweeping generalisation applied to an entire group of people, bypassing individual assessment entirely, is known as a <span class="blank" id="b3">_________</span>.</div>
+          <div class="opts" id="q_f3_opts">
+            <button class="opt" onclick="answerFitb('f3',0,'Stereotype')"><span class="oletter">A</span>Stereotype</button>
+            <button class="opt" onclick="answerFitb('f3',1,'Prejudice')"><span class="oletter">B</span>Prejudice</button>
+            <button class="opt" onclick="answerFitb('f3',2,'Discrimination')"><span class="oletter">C</span>Discrimination</button>
+          </div>
+          <div class="feedback" id="q_f3_fb"></div>
+          <button class="nxt-btn" id="q_f3_next" onclick="finishGame()">🚉 Reach the Final Station</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-        function startTimer() {
-            timerInterval = setInterval(() => {
-                seconds++;
-                let mins = Math.floor(seconds/60).toString().padStart(2,'0');
-                let secs = (seconds%60).toString().padStart(2,'0');
-                document.getElementById('gtimer').innerText = `${mins}:${secs}`;
-            }, 1000);
-        }
+<!-- COMPLETE -->
+<div id="complete-screen" class="screen">
+  <div class="comp-card">
+    <div class="comp-ornament">◆ &nbsp; Investigation Complete &nbsp; ◆</div>
+    <span class="comp-trophy">🏆</span>
+    <div class="comp-title">Case Closed, Investigator.</div>
+    <p style="font-size:.84rem;color:var(--muted);margin-bottom:.4rem;font-style:italic;">The Lens Express pulls into the final station. All carriages sealed. All biases named.</p>
+    <div class="comp-div"></div>
+    <div class="comp-time" id="finish-time">00:00</div>
+    <div class="comp-rank" id="finish-rank"></div>
+    <div class="findings">
+      <div class="findings-title">🚂 Evidence Logged — Key Findings</div>
+      <div class="finding"><span class="finding-dot">◆</span>First Impression Bias causes snap judgements based on appearance — before a single qualification is reviewed.</div>
+      <div class="finding"><span class="finding-dot">◆</span>Affinity Bias leads us to champion those who mirror our own story — often silently erasing equally deserving others.</div>
+      <div class="finding"><span class="finding-dot">◆</span>The Halo Effect allows one brilliant moment to over-inflate ratings across unrelated competencies.</div>
+      <div class="finding"><span class="finding-dot">◆</span>In-group Bias makes us excuse our own group's failures as bad luck while blaming other groups' failures as personal flaws.</div>
+      <div class="finding"><span class="finding-dot">◆</span>Proximity Bias systematically disadvantages remote workers whose results are equal but whose presence is not.</div>
+      <div class="finding"><span class="finding-dot">◆</span>Blindspots and stereotypes persist because they hide in plain sight. Naming them is the first act of change.</div>
+    </div>
+    <button class="board-again" onclick="location.reload()">🚂 Board Again</button>
+  </div>
+</div>
 
-        function checkWord(input) {
-            let val = input.value.toUpperCase().trim();
-            if(targetWords.includes(val) && !foundWords.includes(val)) {
-                foundWords.push(val);
-                document.getElementById('count').innerText = foundWords.length;
-                input.value = "";
-                if(foundWords.length === 10) finishGame();
-            }
-        }
+</div><!-- /story -->
 
-        function finishGame() {
-            clearInterval(timerInterval);
-            const ft = document.getElementById('gtimer').innerText;
-            document.getElementById('final-time').innerText = ft;
-            document.getElementById('game-screen').classList.remove('active');
-            document.getElementById('success-screen').classList.add('active');
-            db.ref('leaderboard').push({
-                name: playerName,
-                time: ft,
-                rawSeconds: seconds
-            });
-        }
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div>
+    <div class="lb-head"><div class="lb-title">🏆 Leaderboard</div><div class="lb-live">● LIVE</div></div>
+    <div class="lb-list" id="lblist"><div class="lb-empty">No investigators have closed the case yet.<br/>Be the first!</div></div>
+  </div>
+  <div class="sb-div"></div>
+  <div class="tmap"><div class="tmap-title">🚂 Train Journey</div><div class="tmap-stops" id="tmap"></div></div>
+  <div class="sb-div"></div>
+  <div class="abox"><div class="abox-title">👥 Investigators Aboard</div><div id="alist"><span style="font-size:.7rem;color:rgba(86,80,80,.6)">Waiting for team…</span></div></div>
+</div>
+</div><!-- /layout -->
 
-        db.ref('leaderboard').orderByChild('rawSeconds').limitToFirst(10).on('value', (snapshot) => {
-            const list = document.getElementById('leaderboard-list');
-            list.innerHTML = "";
-            snapshot.forEach((childSnapshot) => {
-                const data = childSnapshot.val();
-                const li = document.createElement('li');
-                li.innerText = `${data.time} — ${data.name}`;
-                list.appendChild(li);
-            });
-        });
+<script>
+/* ══════════════════════════════════════════
+   FIREBASE
+══════════════════════════════════════════ */
+var FB="https://lensexpress-cfc78-default-rtdb.firebaseio.com";
+function fbGet(p){return fetch(FB+p+".json").then(function(r){return r.json();}).catch(function(){return null;});}
+function fbPut(p,d){return fetch(FB+p+".json",{method:"PUT",body:JSON.stringify(d)}).then(function(r){return r.json();}).catch(function(){return null;});}
+function fbPatch(p,d){return fetch(FB+p+".json",{method:"PATCH",body:JSON.stringify(d)}).then(function(r){return r.json();}).catch(function(){return null;});}
+function fbPoll(p,cb,ms){
+  function run(){fbGet(p).then(function(d){try{cb(d);}catch(e){}});}
+  run();return setInterval(run,ms||4500);
+}
 
-        // This removes the loading curtain once the script executes
-        setTimeout(() => {
-            document.getElementById('curtain').classList.add('out');
-        }, 3000);
-    </script>
+/* ══════════════════════════════════════════
+   SOUND ENGINE
+══════════════════════════════════════════ */
+var AC=null,MUTED=false;
+function initAC(){if(!AC)try{AC=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}}
+function toggleSound(){
+  MUTED=!MUTED;
+  var btn=document.getElementById("snd-toggle");
+  btn.textContent=MUTED?"🔇 Muted":"🔊 Sound";
+  btn.classList.toggle("muted",MUTED);
+  if(MUTED){stopTrainAmbience();}else if(S.startTime){initAC();setTimeout(startTrainAmbience,100);}
+}
+function playTone(freq,dur,type,vol){
+  if(MUTED)return;initAC();if(!AC)return;
+  var o=AC.createOscillator(),g=AC.createGain();
+  o.connect(g);g.connect(AC.destination);
+  o.type=type||"sine";o.frequency.value=freq;
+  g.gain.setValueAtTime(vol||.1,AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+dur);
+  o.start();o.stop(AC.currentTime+dur);
+}
+function sndClick(){playTone(660,.07,"sine",.08);}
+function sndCorrect(){
+  if(MUTED)return;initAC();if(!AC)return;
+  [523,659,784,1047].forEach(function(f,i){
+    var o=AC.createOscillator(),g=AC.createGain();
+    o.connect(g);g.connect(AC.destination);
+    o.type="triangle";o.frequency.value=f;
+    var t=AC.currentTime+i*.08;
+    g.gain.setValueAtTime(.09,t);
+    g.gain.exponentialRampToValueAtTime(.001,t+.2);
+    o.start(t);o.stop(t+.2);
+  });
+}
+function sndWrong(){
+  if(MUTED)return;initAC();if(!AC)return;
+  [300,250].forEach(function(f,i){
+    var o=AC.createOscillator(),g=AC.createGain();
+    o.connect(g);g.connect(AC.destination);
+    o.type="sawtooth";o.frequency.value=f;
+    var t=AC.currentTime+i*.1;
+    g.gain.setValueAtTime(.06,t);
+    g.gain.exponentialRampToValueAtTime(.001,t+.15);
+    o.start(t);o.stop(t+.15);
+  });
+}
+function sndChapter(){
+  if(MUTED)return;initAC();if(!AC)return;
+  [440,550,660].forEach(function(f,i){
+    var o=AC.createOscillator(),g=AC.createGain();
+    o.connect(g);g.connect(AC.destination);
+    o.type="sine";o.frequency.value=f;
+    var t=AC.currentTime+i*.1;
+    g.gain.setValueAtTime(.07,t);
+    g.gain.exponentialRampToValueAtTime(.001,t+.25);
+    o.start(t);o.stop(t+.25);
+  });
+}
+function sndFinish(){
+  if(MUTED)return;initAC();if(!AC)return;
+  [523,659,784,1047,1319].forEach(function(f,i){
+    var o=AC.createOscillator(),g=AC.createGain();
+    o.connect(g);g.connect(AC.destination);
+    o.type="triangle";o.frequency.value=f;
+    var t=AC.currentTime+i*.1;
+    g.gain.setValueAtTime(.08,t);
+    g.gain.exponentialRampToValueAtTime(.001,t+.3);
+    o.start(t);o.stop(t+.3);
+  });
+}
+function sndCipherKey(){playTone(440+Math.random()*200,.06,"sine",.07);}
+function sndCipherSolve(){
+  if(MUTED)return;initAC();if(!AC)return;
+  [660,880,1100].forEach(function(f,i){
+    var o=AC.createOscillator(),g=AC.createGain();
+    o.connect(g);g.connect(AC.destination);
+    o.type="triangle";o.frequency.value=f;
+    var t=AC.currentTime+i*.06;
+    g.gain.setValueAtTime(.08,t);
+    g.gain.exponentialRampToValueAtTime(.001,t+.18);
+    o.start(t);o.stop(t+.18);
+  });
+}
+
+/* ── TRAIN AMBIENCE ── */
+var trainAmbience=null;
+function startTrainAmbience(){
+  if(MUTED||!AC)return;
+  stopTrainAmbience();
+  // Rhythmic chug: low thud every ~0.55s
+  var chugging=true;
+  function chug(){
+    if(MUTED||!chugging)return;
+    var o=AC.createOscillator(),g=AC.createGain();
+    o.connect(g);g.connect(AC.destination);
+    o.type="sine";o.frequency.value=60+Math.random()*10;
+    g.gain.setValueAtTime(.04,AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.18);
+    o.start();o.stop(AC.currentTime+.18);
+    // second beat (clack)
+    var o2=AC.createOscillator(),g2=AC.createGain();
+    o2.connect(g2);g2.connect(AC.destination);
+    o2.type="square";o2.frequency.value=120;
+    g2.gain.setValueAtTime(.015,AC.currentTime+.27);
+    g2.gain.exponentialRampToValueAtTime(.001,AC.currentTime+.38);
+    o2.start(AC.currentTime+.27);o2.stop(AC.currentTime+.38);
+  }
+  trainAmbience={
+    interval:setInterval(chug,550),
+    stop:function(){chugging=false;clearInterval(this.interval);}
+  };
+  chug(); // immediate first chug
+}
+function stopTrainAmbience(){if(trainAmbience){trainAmbience.stop();trainAmbience=null;}}
+function sndTrainHorn(){
+  if(MUTED)return;initAC();if(!AC)return;
+  // Classic two-tone train horn: low then high
+  [[220,0],[277,.35]].forEach(function(pair){
+    var o=AC.createOscillator(),g=AC.createGain();
+    var wave=AC.createWaveShaper();
+    var curve=new Float32Array(256);
+    for(var i=0;i<256;i++){var x=i*2/256-1;curve[i]=x*(1+Math.abs(x))*.5;}
+    wave.curve=curve;
+    o.connect(wave);wave.connect(g);g.connect(AC.destination);
+    o.type="sawtooth";o.frequency.value=pair[0];
+    var t=AC.currentTime+pair[1];
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(.12,t+.06);
+    g.gain.setValueAtTime(.12,t+.55);
+    g.gain.exponentialRampToValueAtTime(.001,t+.8);
+    o.start(t);o.stop(t+.85);
+  });
+}
+
+/* ══════════════════════════════════════════
+   STATE
+══════════════════════════════════════════ */
+var S={
+  name:"",code:"",pid:"inv"+Date.now().toString(36),
+  startTime:null,ch:0,done:{},
+  timerInt:null,pollLB:null,pollP:null,
+  finished:false,demo:false
+};
+var TOTAL=6;
+var STOPS=["Platform Zero","Car 1 · First Impression","Car 2 · Mirror Effect","Car 3 · Cipher Room","Car 4 · Testimonies","Car 5 · Decoder","🏁 Final Station"];
+
+/* ══════════════════════════════════════════
+   CIPHER DATA
+══════════════════════════════════════════ */
+var CIPHERS=[
+  {answer:"AFFINITY",  scramble:"YTFAINFI", desc:"The tendency to favour and champion people who are similar to yourself in background, interests, or communication style."},
+  {answer:"HALO",      scramble:"OHLA",     desc:"Allowing one exceptional quality or moment to positively colour your assessment of all other unrelated traits."},
+  {answer:"RECENCY",   scramble:"YNCERCE",  desc:"Placing excessive weight on the most recent events or information when forming judgements."},
+  {answer:"PROXIMITY", scramble:"XTOMIRYIP",desc:"Assuming that employees who are physically closer or more visible are inherently more productive or committed."},
+  {answer:"ANCHOR",    scramble:"RACHON",   desc:"Relying too heavily on the very first piece of information encountered when making decisions."},
+  {answer:"GENDER",    scramble:"DNEERG",   desc:"Applying assumptions or differential treatment to individuals based on their gender rather than their demonstrated abilities."}
+];
+
+/* cipher state */
+var cipherState={solved:[],current:0,slots:[],selected:null};
+
+function buildCipherPuzzles(){
+  var c=document.getElementById("cipher-puzzles");c.innerHTML="";
+  CIPHERS.forEach(function(cipher,idx){
+    var div=document.createElement("div");div.className="cipher-card";div.id="ccard"+idx;
+    var locked=idx>0?"locked":"active";
+    div.innerHTML=
+      '<div class="cipher-hdr">'+
+        '<div class="cipher-num">ENCODED FILE '+(idx+1)+' OF '+CIPHERS.length+'</div>'+
+        '<div class="cipher-status '+locked+'" id="cst'+idx+'">'+( idx===0?"ACTIVE":"LOCKED")+'</div>'+
+      '</div>'+
+      '<div class="cipher-body" id="cbody'+idx+'">'+(idx>0?'<div style="text-align:center;padding:1rem;color:var(--muted);font-size:.78rem">🔒 Solve the previous cipher to unlock</div>':'')+'</div>';
+    c.appendChild(div);
+  });
+  renderCipher(0);
+}
+
+function renderCipher(idx){
+  var cipher=CIPHERS[idx];
+  var body=document.getElementById("cbody"+idx);
+  // build scrambled letters (with extra decoys)
+  var letters=cipher.scramble.split("");
+  // slots array — length of answer
+  var ansLen=cipher.answer.length;
+  var slotsHTML='<div class="cipher-slots" id="cslots'+idx+'">';
+  for(var s=0;s<ansLen;s++){
+    slotsHTML+='<div class="c-slot" id="csl'+idx+'_'+s+'" onclick="removeFromSlot('+idx+','+s+')"></div>';
+  }
+  slotsHTML+='</div>';
+  var lettersHTML='<div class="cipher-letters" id="cletters'+idx+'">';
+  // shuffle letters
+  var shuffled=letters.slice().sort(function(){return Math.random()-.5;});
+  shuffled.forEach(function(l,li){
+    lettersHTML+='<div class="c-letter" id="clet'+idx+'_'+li+'" onclick="selectLetter('+idx+','+li+',\''+l+'\')">'+l+'</div>';
+  });
+  lettersHTML+='</div>';
+  body.innerHTML=
+    '<div class="cipher-desc">'+cipher.desc+'</div>'+
+    slotsHTML+
+    lettersHTML+
+    '<div class="cipher-controls">'+
+      '<button class="cipher-clear" onclick="clearCipher('+idx+')">✕ Clear</button>'+
+      '<button class="cipher-check" onclick="checkCipher('+idx+')">✓ Decode</button>'+
+      '<button class="cipher-hint-btn" id="chintbtn'+idx+'" onclick="showCipherHint('+idx+')">💡 Hint</button>'+
+    '</div>'+
+    '<div class="cipher-hint-text" id="chint'+idx+'">First letter: <strong>'+cipher.answer[0]+'</strong> · Length: <strong>'+cipher.answer.length+'</strong></div>'+
+    '<div class="cipher-fb" id="cfb'+idx+'"></div>';
+  // init slot tracker
+  if(!cipherState.slots[idx]) cipherState.slots[idx]=new Array(ansLen).fill(null);
+}
+
+function selectLetter(idx,li,letter){
+  if(cipherState.solved.indexOf(idx)>-1)return;
+  sndCipherKey();
+  var slots=cipherState.slots[idx];
+  // find first empty slot
+  var emptyIdx=-1;
+  for(var i=0;i<slots.length;i++){if(slots[i]===null){emptyIdx=i;break;}}
+  if(emptyIdx===-1)return; // all slots full
+  slots[emptyIdx]={letter:letter,li:li};
+  // mark letter as used
+  var letEl=document.getElementById("clet"+idx+"_"+li);
+  if(letEl)letEl.classList.add("used");
+  // fill slot
+  var slotEl=document.getElementById("csl"+idx+"_"+emptyIdx);
+  if(slotEl){slotEl.textContent=letter;slotEl.classList.add("filled");}
+}
+
+function removeFromSlot(idx,slotIdx){
+  if(cipherState.solved.indexOf(idx)>-1)return;
+  var slots=cipherState.slots[idx];
+  var entry=slots[slotIdx];
+  if(!entry)return;
+  sndCipherKey();
+  // restore letter
+  var letEl=document.getElementById("clet"+idx+"_"+entry.li);
+  if(letEl)letEl.classList.remove("used");
+  // clear slot
+  slots[slotIdx]=null;
+  var slotEl=document.getElementById("csl"+idx+"_"+slotIdx);
+  if(slotEl){slotEl.textContent="";slotEl.classList.remove("filled");}
+}
+
+function clearCipher(idx){
+  if(cipherState.solved.indexOf(idx)>-1)return;
+  sndClick();
+  var slots=cipherState.slots[idx];
+  for(var i=0;i<slots.length;i++){
+    if(slots[i]){
+      var letEl=document.getElementById("clet"+idx+"_"+slots[i].li);
+      if(letEl)letEl.classList.remove("used");
+      var slotEl=document.getElementById("csl"+idx+"_"+i);
+      if(slotEl){slotEl.textContent="";slotEl.classList.remove("filled");}
+    }
+  }
+  cipherState.slots[idx]=new Array(CIPHERS[idx].answer.length).fill(null);
+}
+
+function checkCipher(idx){
+  sndClick();
+  var slots=cipherState.slots[idx];
+  var answer=slots.map(function(s){return s?s.letter:"";}).join("").toUpperCase();
+  var correct=CIPHERS[idx].answer;
+  var fb=document.getElementById("cfb"+idx);
+  if(answer===correct){
+    sndCipherSolve();
+    fireSuccess();
+    cipherState.solved.push(idx);
+    fb.className="cipher-fb show ok";
+    fb.textContent="✅ DECODED — "+correct+" — "+getCipherExplain(correct);
+    document.getElementById("cst"+idx).textContent="SOLVED";
+    document.getElementById("cst"+idx).className="cipher-status solved";
+    // flash correct letters
+    var sels=document.querySelectorAll("#cslots"+idx+" .c-slot");
+    sels.forEach(function(s){s.classList.add("correct-flash");});
+    // update score
+    var cnt=cipherState.solved.length;
+    document.getElementById("cipher-count").textContent=cnt;
+    document.getElementById("cipher-prog").style.width=Math.round(cnt/CIPHERS.length*100)+"%";
+    // unlock next
+    var next=idx+1;
+    if(next<CIPHERS.length && cipherState.solved.indexOf(next)===-1){
+      setTimeout(function(){
+        var nbody=document.getElementById("cbody"+next);
+        var nst=document.getElementById("cst"+next);
+        if(nst){nst.textContent="ACTIVE";nst.className="cipher-status active";}
+        renderCipher(next);
+        document.getElementById("ccard"+next).scrollIntoView({behavior:"smooth",block:"start"});
+      },800);
+    }
+    // show proceed if threshold met
+    if(cnt>=4){
+      var btn=document.getElementById("cipher-proceed");
+      if(btn){btn.style.display="block";}
+      toast("🔓 Enough ciphers decoded! You may proceed.","success");
+    }
+  } else {
+    sndWrong();
+    fb.className="cipher-fb show bad";
+    fb.textContent="✗ Incorrect. Your answer: "+answer+". Try rearranging the letters.";
+    setTimeout(function(){clearCipher(idx);fb.className="cipher-fb";},1600);
+  }
+}
+
+function getCipherExplain(word){
+  var map={
+    "AFFINITY":"We champion people who mirror our own story.",
+    "HALO":"One brilliant moment shouldn't define everything.",
+    "RECENCY":"The freshest event shouldn't outweigh the full picture.",
+    "PROXIMITY":"Visibility does not equal productivity.",
+    "ANCHOR":"The first number you hear shouldn't anchor all decisions.",
+    "GENDER":"Gender assumptions cost organisations real talent."
+  };
+  return map[word]||"";
+}
+
+function showCipherHint(idx){
+  sndClick();
+  var h=document.getElementById("chint"+idx);
+  if(h)h.classList.add("shown");
+  var btn=document.getElementById("chintbtn"+idx);
+  if(btn)btn.style.opacity=".3";
+}
+
+/* ══════════════════════════════════════════
+   AMBIENT
+══════════════════════════════════════════ */
+// Curtain — always fires independently
+setTimeout(function(){
+  var c=document.getElementById("curtain");
+  c.classList.add("out");
+  c.addEventListener("transitionend",function(){c.style.display="none";},{once:true});
+},2900);
+
+(function(){
+  var s=document.getElementById("ambient");
+  for(var i=0;i<110;i++){
+    var el=document.createElement("div");el.className="star";
+    var sz=.6+Math.random()*2.5;
+    el.style.cssText="width:"+sz+"px;height:"+sz+"px;left:"+(Math.random()*100)+"%;top:"+(Math.random()*82)+"%;animation-duration:"+(1.5+Math.random()*4)+"s;animation-delay:"+(Math.random()*7)+"s;";
+    s.appendChild(el);
+  }
+  for(var j=0;j<8;j++){
+    var ln=document.createElement("div");ln.className="streak";
+    var w=60+Math.random()*200;
+    ln.style.cssText="width:"+w+"px;top:"+(15+Math.random()*65)+"%;animation-duration:"+(3+Math.random()*6)+"s;animation-delay:"+(Math.random()*8)+"s;";
+    s.appendChild(ln);
+  }
+})();
+
+(function(){
+  var t=document.getElementById("tracks");
+  function addPuff(){
+    var el=document.createElement("div");el.className="puff";
+    var sz=15+Math.random()*25;
+    el.style.cssText="width:"+sz+"px;height:"+sz+"px;left:"+(5+Math.random()*15)+"%;bottom:60px;animation-duration:"+(3+Math.random()*3)+"s;";
+    t.appendChild(el);
+    setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},6000);
+  }
+  setInterval(addPuff,1400);
+})();
+
+function buildCityLights(id){
+  var c=document.getElementById(id);if(!c)return;
+  for(var i=0;i<60;i++){
+    var el=document.createElement("div");el.className="light-dot";
+    var sz=1+Math.random()*3,col=Math.random()>.5?"rgba(255,220,150,":"rgba(150,200,255,";
+    el.style.cssText="width:"+sz+"px;height:"+sz+"px;left:"+(Math.random()*100)+"%;top:"+(20+Math.random()*70)+"%;background:"+col+(0.4+Math.random()*.5)+");animation-duration:"+(0.8+Math.random()*2)+"s;animation-delay:"+(Math.random()*3)+"s;";
+    c.appendChild(el);
+  }
+}
+function buildRain(id){
+  var c=document.getElementById(id);if(!c)return;
+  for(var i=0;i<30;i++){
+    var el=document.createElement("div");el.className="rain-drop";
+    var h=30+Math.random()*80;
+    el.style.cssText="width:1px;height:"+h+"px;left:"+(Math.random()*100)+"%;top:0;animation-duration:"+(0.6+Math.random()*.8)+"s;animation-delay:"+(Math.random()*2)+"s;";
+    c.appendChild(el);
+  }
+}
+
+function buildTrainMap(){
+  var c=document.getElementById("tmap");c.innerHTML="";
+  STOPS.forEach(function(lbl,i){
+    var div=document.createElement("div");div.className="ts";div.id="ts"+i;
+    div.innerHTML='<div class="ts-node">○</div><div class="ts-lbl">'+lbl+'</div>';
+    c.appendChild(div);
+  });
+}
+
+/* ══════════════════════════════════════════
+   UTILS
+══════════════════════════════════════════ */
+function fmt(s){return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");}
+function elapsed(){return Math.floor((Date.now()-S.startTime)/1000);}
+
+function toast(msg,type){
+  var tc=document.getElementById("toasts"),t=document.createElement("div");
+  t.className="toast "+(type||"info");t.textContent=msg;tc.appendChild(t);
+  setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},4500);
+}
+
+function showScreen(id){
+  ["join-screen","ch0","ch1","ch2","ch3","ch4","ch5","complete-screen"].forEach(function(s){
+    var el=document.getElementById(s);if(!el)return;
+    el.style.display="none";el.classList.remove("active","vis");
+  });
+  var el=document.getElementById(id);if(!el)return;
+  el.style.display=(id==="complete-screen")?"flex":"block";
+  el.classList.add("active");
+  setTimeout(function(){el.classList.add("vis");},40);
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function renderStrip(chId){
+  var el=document.getElementById("strip"+chId);if(!el)return;
+  var html="";
+  for(var i=0;i<=TOTAL;i++){
+    var c="pip";
+    if(i<chId)c+=" done";else if(i===chId)c+=" curr";
+    html+='<div class="'+c+'"></div>';
+  }
+  html+='<div class="strip-lbl">CAR '+chId+' / '+TOTAL+'</div>';
+  el.innerHTML=html;
+}
+
+function updateMap(n){
+  for(var i=0;i<=TOTAL;i++){
+    var el=document.getElementById("ts"+i);if(!el)continue;
+    el.className="ts";var nd=el.querySelector(".ts-node");
+    if(i<n){el.classList.add("done");if(nd)nd.textContent="✓";}
+    else if(i===n){el.classList.add("curr");if(nd)nd.textContent="●";}
+    else{if(nd)nd.textContent="○";}
+  }
+}
+
+function updateTrainProg(n){
+  var pct=Math.round(n/TOTAL*100);
+  document.getElementById("train-prog").style.width=pct+"%";
+  document.getElementById("train-loco").style.left=pct+"%";
+}
+
+/* ══════════════════════════════════════════
+   CODE & JOIN
+══════════════════════════════════════════ */
+function generateCode(){
+  var w=["EXPRESS","RAILS","LENS","CASE","BIAS","VAULT","CLUE","TRACK","NOIR","GOLD"];
+  document.getElementById("inp-code").value=w[Math.floor(Math.random()*w.length)]+"-"+Math.floor(1000+Math.random()*9000);
+}
+
+function joinGame(){
+  sndClick();
+  var name=document.getElementById("inp-name").value.trim();
+  var code=document.getElementById("inp-code").value.trim().toUpperCase();
+  var stat=document.getElementById("fbstat");
+  if(!name){toast("⚠️ Enter your investigator name","error");return;}
+  if(!code){toast("⚠️ Enter or generate a mission code","error");return;}
+  S.name=name;S.code=code;
+  var btn=document.getElementById("join-btn");
+  btn.disabled=true;btn.textContent="Boarding…";
+  stat.textContent="Connecting…";stat.className="fbstat";
+  fbPut("rooms/"+code+"/players/"+S.pid,{name:name,ch:0,joined:Date.now()})
+    .then(function(res){
+      if(res){
+        stat.textContent="✓ Mission joined";stat.className="fbstat ok";
+        S.pollLB=fbPoll("rooms/"+code+"/leaderboard",renderLB,4500);
+        S.pollP=fbPoll("rooms/"+code+"/players",renderPlayers,5500);
+      } else {
+        S.demo=true;stat.textContent="Offline mode";stat.className="fbstat err";
+      }
+      startSession();
+    }).catch(function(){
+      S.demo=true;btn.disabled=false;btn.textContent="🚂 Board the Train";
+      stat.textContent="Offline mode — leaderboard unavailable";stat.className="fbstat err";
+      startSession();
+    });
+}
+
+function startSession(){
+  document.getElementById("badge-name").textContent=S.name+(S.demo?" (offline)":"");
+  buildCityLights("city0");buildRain("rain0");
+  buildTrainMap();
+  buildCipherPuzzles();
+  showScreen("ch0");
+  renderStrip(0);updateMap(0);updateTrainProg(0);
+  startTimer();
+  sndChapter();
+  initAC();
+  setTimeout(startTrainAmbience, 600);
+  toast("🚂 All aboard, "+S.name+"! Six carriages await.","success");
+}
+
+/* ══════════════════════════════════════════
+   TIMER
+══════════════════════════════════════════ */
+function startTimer(){
+  S.startTime=Date.now();
+  S.timerInt=setInterval(function(){
+    var e=elapsed(),el=document.getElementById("gtimer");
+    el.textContent="⏱ "+fmt(e);
+    el.className=e>600?"danger":e>300?"warn":"";
+  },1000);
+}
+
+/* ══════════════════════════════════════════
+   CHAPTER NAV
+══════════════════════════════════════════ */
+function goChapter(n){
+  sndChapter();sndTrainHorn();S.ch=n;
+  renderStrip(n);updateMap(n);updateTrainProg(n);
+  showScreen("ch"+n);
+  if(!S.demo)fbPatch("rooms/"+S.code+"/players/"+S.pid,{ch:n});
+  toast("🚂 Entering Carriage "+n+"…","info");
+}
+
+/* ══════════════════════════════════════════
+   QUIZ
+══════════════════════════════════════════ */
+var QD={
+  c1:{a:1,ex:"✅ First Impression Bias! A 30-second glance at a headshot sealed the decision — before a single qualification was read. This happens in 90% of hiring processes."},
+  c2:{a:1,ex:"✅ Affinity Bias! The manager champions Priya because she mirrors her own early story. Well-intentioned — yet systematically unfair to Marcus."},
+  t1:{a:1,ex:"✅ Halo Effect! One dazzling presentation caused the reviewer to assume excellence across every unrelated competency."},
+  t2:{a:0,ex:"✅ In-group Bias! Sam (in-group) gets benefit of the doubt. Alex (out-group) gets personal blame. Identical outcome. Opposite verdicts."},
+  t3:{a:2,ex:"✅ Proximity Bias! Leila's results are identical to every office peer — but 'out of sight' has become 'out of mind' for promotions."}
+};
+
+function answerQ(qid,idx){
+  sndClick();
+  if(S.done[qid])return;
+  S.done[qid]=true;
+  var data=QD[qid];
+  var opts=document.querySelectorAll("#q_"+qid+"_opts .opt");
+  for(var i=0;i<opts.length;i++)opts[i].disabled=true;
+  var ok=(idx===data.a);
+  opts[idx].classList.add(ok?"correct":"wrong");
+  if(!ok)opts[data.a].classList.add("correct");
+  var fb=document.getElementById("q_"+qid+"_fb");
+  fb.textContent=(ok?"":"✗ Not quite. ")+data.ex;
+  fb.className="feedback show "+(ok?"correct":"wrong");
+  var nb=document.getElementById("q_"+qid+"_next");
+  if(nb)nb.style.display="inline-flex";
+  if(ok){fireSuccess();sndCorrect();}else{sndWrong();}
+}
+
+/* ══════════════════════════════════════════
+   FILL-IN-THE-BLANK
+══════════════════════════════════════════ */
+var FD={
+  f1:{a:0,w:"Blindspot",ex:"✅ Blindspot! An area invisible to the person themselves but clearly visible to those around them."},
+  f2:{a:0,w:"Proximity Bias",ex:"✅ Proximity Bias! The false assumption that physical presence equals greater commitment or output."},
+  f3:{a:0,w:"Stereotype",ex:"✅ Stereotype! A sweeping, over-generalised belief applied to an entire group — bypassing individual assessment."}
+};
+
+function answerFitb(qid,idx,word){
+  sndClick();
+  if(S.done[qid])return;
+  var data=FD[qid];
+  var ok=(idx===data.a);
+
+  if(!ok){
+    // WRONG — show feedback but allow retry (do NOT lock done)
+    sndWrong();
+    var opts=document.querySelectorAll("#q_"+qid+"_opts .opt");
+    opts[idx].classList.add("wrong");
+    opts[idx].disabled=true; // disable only the wrong choice
+    var fb=document.getElementById("q_"+qid+"_fb");
+    fb.textContent="✗ Not quite — try again!";
+    fb.className="feedback show wrong";
+    return; // do not advance, do not lock
+  }
+
+  // CORRECT — lock question and proceed
+  S.done[qid]=true;
+  sndCorrect();fireSuccess();
+  var opts2=document.querySelectorAll("#q_"+qid+"_opts .opt");
+  for(var i=0;i<opts2.length;i++)opts2[i].disabled=true;
+  opts2[idx].classList.add("correct");
+  var fb2=document.getElementById("q_"+qid+"_fb");
+  fb2.textContent=data.ex;
+  fb2.className="feedback show correct";
+
+  // Fill blank
+  var bnum=qid.replace("f","");
+  var bl=document.getElementById("b"+bnum);
+  if(bl){bl.textContent=data.w;bl.classList.add("filled");}
+
+  // Always unlock next section
+  var nids={f1:"fw2",f2:"fw3"};
+  var nid=nids[qid];
+  if(nid){
+    var nw=document.getElementById(nid);
+    if(nw){
+      nw.style.opacity="1";nw.style.pointerEvents="auto";nw.style.transform="translateY(0)";
+      setTimeout(function(){nw.scrollIntoView({behavior:"smooth",block:"start"});},400);
+    }
+  }
+  if(qid==="f3"){
+    var nb=document.getElementById("q_f3_next");
+    if(nb)nb.style.display="inline-flex";
+  }
+}
+
+function showReveal(id){
+  sndClick();
+  var el=document.getElementById(id);
+  if(el){
+    el.classList.add("shown");
+    setTimeout(function(){el.scrollIntoView({behavior:"smooth",block:"start"});},130);
+  }
+}
+
+/* ══════════════════════════════════════════
+   SUCCESS BURST
+══════════════════════════════════════════ */
+function fireSuccess(){
+  var b=document.getElementById("burst");b.innerHTML="";
+  var cols=["#d4a843","#f0c060","#4ade80","#60a5fa","#f472b6","#a78bfa","#fb923c","#00b8a9"];
+  for(var i=0;i<32;i++){
+    var el=document.createElement("div");el.className="bp";
+    var ang=Math.random()*360,dist=80+Math.random()*150,sz=4+Math.random()*8;
+    var dx=Math.cos(ang*Math.PI/180)*dist,dy=Math.sin(ang*Math.PI/180)*dist;
+    el.style.cssText="left:50%;top:42%;width:"+sz+"px;height:"+sz+"px;background:"+cols[i%cols.length]+";--dx:"+dx+"px;--dy:"+dy+"px;animation-duration:"+(0.5+Math.random()*.4)+"s;animation-delay:"+(Math.random()*.09)+"s;border-radius:"+(Math.random()>.5?"50%":"3px")+";";
+    b.appendChild(el);
+  }
+  setTimeout(function(){b.innerHTML="";},1400);
+}
+
+/* ══════════════════════════════════════════
+   FINISH
+══════════════════════════════════════════ */
+function finishGame(){
+  if(S.finished)return;S.finished=true;
+  sndFinish();
+  stopTrainAmbience();
+  clearInterval(S.timerInt);
+  if(S.pollLB)clearInterval(S.pollLB);
+  if(S.pollP)clearInterval(S.pollP);
+  updateMap(TOTAL);updateTrainProg(TOTAL);
+  var e=elapsed();
+  document.getElementById("finish-time").textContent=fmt(e);
+  fireSuccess();
+  setTimeout(function(){showScreen("complete-screen");},800);
+  if(S.demo){
+    document.getElementById("finish-rank").textContent="🎉 Investigation complete! Add Firebase for live multiplayer.";
+    return;
+  }
+  fbPut("rooms/"+S.code+"/leaderboard/"+S.pid,{name:S.name,time:e,at:Date.now()})
+    .then(function(){return fbGet("rooms/"+S.code+"/leaderboard");})
+    .then(function(data){
+      if(!data)return;
+      var entries=Object.values(data).sort(function(a,b){return a.time-b.time;});
+      var rank=entries.findIndex(function(x){return x.name===S.name;})+1;
+      document.getElementById("finish-rank").textContent=
+        rank<=3?"🏅 Ranked #"+rank+" — "+["🥇","🥈","🥉"][rank-1]+" — Exceptional, Investigator!"
+               :"You ranked #"+rank+" — Well investigated!";
+    }).catch(function(){});
+}
+
+/* ══════════════════════════════════════════
+   LEADERBOARD
+══════════════════════════════════════════ */
+function renderLB(data){
+  var c=document.getElementById("lblist");
+  if(!data||Object.keys(data).length===0){
+    c.innerHTML='<div class="lb-empty">No investigators have closed the case yet.<br/>Be the first!</div>';return;
+  }
+  var medals=["🥇","🥈","🥉"],rks=["r1","r2","r3"],avs=["🕵️","🔍","⚡","🌟","🧠","🦊","🚀","🎯"];
+  var entries=Object.values(data).sort(function(a,b){return a.time-b.time;}).slice(0,3);
+  c.innerHTML=entries.map(function(e,i){
+    var av=avs[e.name.charCodeAt(0)%avs.length];
+    return '<div class="lbe '+rks[i]+' new">'+
+      '<div class="lbrank">'+medals[i]+'</div>'+
+      '<div class="lbav">'+av+'</div>'+
+      '<div class="lbinfo"><div class="lbname">'+e.name+'</div><div class="lbsub">Case closed</div></div>'+
+      '<div class="lbtime">'+fmt(e.time)+'</div></div>';
+  }).join("");
+}
+
+function renderPlayers(data){
+  var c=document.getElementById("alist");
+  if(!data||Object.keys(data).length===0){
+    c.innerHTML='<span style="font-size:.7rem;color:rgba(86,80,80,.5)">No investigators yet</span>';return;
+  }
+  c.innerHTML=Object.values(data).map(function(p){return '<div class="achip">🕵️ '+p.name+'</div>';}).join("");
+}
+
+/* Init */
+generateCode();
+</script>
 </body>
 </html>
