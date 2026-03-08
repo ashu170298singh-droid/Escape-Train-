@@ -752,9 +752,9 @@ header{position:sticky;top:0;z-index:100;background:rgba(5,5,9,.95);border-botto
    FIREBASE
 ══════════════════════════════════════════ */
 var FB="https://lensexpress-cfc78-default-rtdb.firebaseio.com";
-function fbGet(p){return fetch(FB+p+".json").then(function(r){return r.json();}).catch(function(){return null;});}
-function fbPut(p,d){return fetch(FB+p+".json",{method:"PUT",body:JSON.stringify(d)}).then(function(r){return r.json();}).catch(function(){return null;});}
-function fbPatch(p,d){return fetch(FB+p+".json",{method:"PATCH",body:JSON.stringify(d)}).then(function(r){return r.json();}).catch(function(){return null;});}
+function fbGet(p){return fetch(FB+p+".json").then(function(r){if(!r.ok)throw new Error(r.status);return r.json();}).catch(function(){return null;});}
+function fbPut(p,d){return fetch(FB+p+".json",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json();}).catch(function(e){console.error("fbPut error",e);return null;});}
+function fbPatch(p,d){return fetch(FB+p+".json",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json();}).catch(function(){return null;});}
 function fbPoll(p,cb,ms){
   function run(){fbGet(p).then(function(d){try{cb(d);}catch(e){}});}
   run();return setInterval(run,ms||4500);
@@ -1220,20 +1220,24 @@ function joinGame(){
   S.name=name;S.code=code;
   var btn=document.getElementById("join-btn");
   btn.disabled=true;btn.textContent="Boarding…";
-  stat.textContent="Connecting…";stat.className="fbstat";
+  stat.textContent="Connecting to Firebase…";stat.className="fbstat";
   fbPut("rooms/"+code+"/players/"+S.pid,{name:name,ch:0,joined:Date.now()})
     .then(function(res){
-      if(res){
-        stat.textContent="✓ Mission joined";stat.className="fbstat ok";
+      if(res!==null){
+        S.demo=false;
+        stat.textContent="✓ Connected — Mission "+code+" joined!";stat.className="fbstat ok";
         S.pollLB=fbPoll("rooms/"+code+"/leaderboard",renderLB,4500);
         S.pollP=fbPoll("rooms/"+code+"/players",renderPlayers,5500);
       } else {
-        S.demo=true;stat.textContent="Offline mode";stat.className="fbstat err";
+        S.demo=true;
+        stat.textContent="⚠ Could not reach Firebase — playing offline";stat.className="fbstat err";
+        console.warn("Firebase write returned null — check DB rules and URL");
       }
       startSession();
-    }).catch(function(){
+    }).catch(function(err){
       S.demo=true;btn.disabled=false;btn.textContent="🚂 Board the Train";
-      stat.textContent="Offline mode — leaderboard unavailable";stat.className="fbstat err";
+      stat.textContent="⚠ Connection failed — playing offline";stat.className="fbstat err";
+      console.error("Firebase join error:",err);
       startSession();
     });
 }
