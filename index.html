@@ -35,18 +35,44 @@ body::after{content:'';position:fixed;inset:0;background-image:url("data:image/s
 .puff{position:absolute;border-radius:50%;background:radial-gradient(circle,rgba(200,210,255,.05),transparent);animation:puffRise ease-out infinite;}
 @keyframes puffRise{0%{transform:translateY(0) scale(1);opacity:.4}100%{transform:translateY(-100px) scale(3);opacity:0}}
 
-/* ── CURTAIN ── */
-#curtain{position:fixed;inset:0;background:var(--void);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1.6rem;transition:opacity 1.2s ease;}
+/* ── CURTAIN / INTRO ── */
+#curtain{position:fixed;inset:0;background:var(--void);z-index:9999;overflow:hidden;transition:opacity 1.4s ease;}
 #curtain.out{opacity:0;pointer-events:none;}
-#curtain::before,#curtain::after{content:'';position:absolute;border:1px solid rgba(212,168,67,.15);border-radius:2px;pointer-events:none;}
-#curtain::before{inset:24px;}#curtain::after{inset:30px;border-color:rgba(212,168,67,.07);}
-.ct-ornament{color:var(--gold);font-size:.8rem;letter-spacing:.4em;opacity:.5;text-transform:uppercase;}
-.ct-train{font-size:4rem;animation:trainRock 1s ease-in-out infinite alternate;display:block;}
+.intro-scene{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;}
+/* Scene 1 — studio card */
+.intro-s1{animation:introFade 1s ease forwards;}
+.studio-card{font-size:.65rem;letter-spacing:.35em;text-transform:uppercase;color:rgba(212,168,67,.35);border:1px solid rgba(212,168,67,.12);padding:.5rem 1.4rem;border-radius:2px;}
+/* Scene 2 — title reveal */
+.intro-s2{text-align:center;opacity:0;animation:introFade 1.2s ease .8s forwards;}
+.intro-byline{font-size:.62rem;letter-spacing:.3em;text-transform:uppercase;color:rgba(212,168,67,.4);margin-bottom:1.4rem;}
+.intro-title-wrap{position:relative;margin-bottom:.6rem;}
+.intro-maintitle{font-family:'Cormorant Garant',serif;font-size:clamp(2.8rem,7vw,5.5rem);font-weight:700;color:var(--gold3);letter-spacing:.06em;line-height:.95;display:block;text-shadow:0 0 60px rgba(212,168,67,.25);}
+.intro-subtitle{font-family:'Cormorant Garant',serif;font-size:clamp(1.6rem,4vw,3rem);font-style:italic;color:var(--cream);font-weight:400;letter-spacing:.04em;display:block;}
+.intro-tagline{font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--text2);margin-top:.8rem;}
+/* Scene 3 — train animation */
+.intro-s3{position:absolute;bottom:80px;left:0;right:0;overflow:hidden;height:60px;opacity:0;animation:introFade .8s ease 1.8s forwards;}
+.intro-train{font-size:2.8rem;position:absolute;left:-120px;animation:trainEnter 2.2s cubic-bezier(.25,.46,.45,.94) 2s forwards;filter:drop-shadow(0 4px 20px rgba(212,168,67,.4));line-height:1;}
+@keyframes trainEnter{from{left:-120px}to{left:110%}}
+.intro-rails{position:absolute;bottom:0;left:0;right:0;height:3px;background:repeating-linear-gradient(90deg,rgba(212,168,67,.25) 0,rgba(212,168,67,.25) 20px,transparent 20px,transparent 36px);}
+.intro-steam{position:absolute;top:0;font-size:1rem;animation:steamDrift 1.5s ease 2.2s forwards;opacity:0;}
+@keyframes steamDrift{0%{opacity:.7;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(30px,-40px) scale(2.5)}}
+/* Scene 4 — loading bar */
+.intro-s4{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);text-align:center;opacity:0;animation:introFade .6s ease 2s forwards;}
+.intro-bar-wrap{width:200px;height:2px;background:rgba(212,168,67,.08);border-radius:2px;margin:.5rem auto 0;}
+.intro-bar-fill{height:100%;background:linear-gradient(90deg,var(--gold2),var(--gold3));border-radius:2px;animation:cfill 2.8s cubic-bezier(.4,0,.2,1) forwards;}
+.intro-bar-lbl{font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(212,168,67,.3);}
+/* Credit */
+.intro-credit{position:absolute;bottom:14px;right:20px;font-size:.58rem;letter-spacing:.12em;color:rgba(212,168,67,.22);font-family:'Cormorant Garant',serif;font-style:italic;}
+/* Scanlines overlay */
+.intro-scanlines{position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);pointer-events:none;}
+/* Decorative corner frames */
+.intro-frame{position:absolute;pointer-events:none;}
+.intro-frame svg{opacity:.18;}
+.intro-frame.tl{top:18px;left:18px;}.intro-frame.tr{top:18px;right:18px;transform:scaleX(-1);}
+.intro-frame.bl{bottom:18px;left:18px;transform:scaleY(-1);}.intro-frame.br{bottom:18px;right:18px;transform:scale(-1,-1);}
+@keyframes introFade{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes trainRock{from{transform:translateX(-10px) rotate(-1deg)}to{transform:translateX(10px) rotate(1deg)}}
-.ct-title{font-family:'Cormorant Garant',serif;font-size:3.2rem;font-weight:700;color:var(--gold3);text-align:center;letter-spacing:.06em;line-height:1;text-shadow:0 0 40px rgba(212,168,67,.3);}
-.ct-title em{font-style:italic;color:var(--cream);font-weight:400;}
-.ct-sub{font-size:.7rem;letter-spacing:.22em;text-transform:uppercase;color:var(--text2);}
-.ct-line{width:240px;height:1px;background:linear-gradient(90deg,transparent,var(--gold2),transparent);}
+.ct-train{font-size:4rem;animation:trainRock 1s ease-in-out infinite alternate;display:block;}
 .ct-bar{width:180px;height:2px;background:rgba(212,168,67,.08);border-radius:2px;overflow:hidden;}
 .ct-fill{height:100%;background:linear-gradient(90deg,var(--gold2),var(--gold3));border-radius:2px;animation:cfill 2.8s cubic-bezier(.4,0,.2,1) forwards;}
 @keyframes cfill{from{width:0}to{width:100%}}
@@ -389,14 +415,39 @@ header{position:sticky;top:0;z-index:100;background:rgba(5,5,9,.95);border-botto
 <div id="burst"></div>
 <div id="toasts"></div>
 
-<!-- CURTAIN -->
+<!-- CINEMATIC INTRO -->
 <div id="curtain">
-  <div class="ct-ornament">◆ &nbsp; Investigation Begins &nbsp; ◆</div>
-  <span class="ct-train">🚂</span>
-  <div class="ct-title">The Lens <em>Express</em></div>
-  <div class="ct-line"></div>
-  <div class="ct-sub">Bias Investigation · All Carriages Boarding</div>
-  <div class="ct-bar"><div class="ct-fill"></div></div>
+  <div class="intro-scanlines"></div>
+  <!-- Corner frames -->
+  <div class="intro-frame tl"><svg width="70" height="70" viewBox="0 0 70 70" fill="none"><path d="M5 5 L5 35 M5 5 L35 5 M5 18 L18 5" stroke="#d4a843" stroke-width="1.5"/><rect x="5" y="5" width="8" height="8" fill="rgba(212,168,67,.15)"/></svg></div>
+  <div class="intro-frame tr"><svg width="70" height="70" viewBox="0 0 70 70" fill="none"><path d="M5 5 L5 35 M5 5 L35 5 M5 18 L18 5" stroke="#d4a843" stroke-width="1.5"/><rect x="5" y="5" width="8" height="8" fill="rgba(212,168,67,.15)"/></svg></div>
+  <div class="intro-frame bl"><svg width="70" height="70" viewBox="0 0 70 70" fill="none"><path d="M5 5 L5 35 M5 5 L35 5 M5 18 L18 5" stroke="#d4a843" stroke-width="1.5"/><rect x="5" y="5" width="8" height="8" fill="rgba(212,168,67,.15)"/></svg></div>
+  <div class="intro-frame br"><svg width="70" height="70" viewBox="0 0 70 70" fill="none"><path d="M5 5 L5 35 M5 5 L35 5 M5 18 L18 5" stroke="#d4a843" stroke-width="1.5"/><rect x="5" y="5" width="8" height="8" fill="rgba(212,168,67,.15)"/></svg></div>
+  <!-- Studio card -->
+  <div class="intro-scene">
+    <div class="intro-s1"><div class="studio-card">Global Equity Council &nbsp;·&nbsp; 2025</div></div>
+    <!-- Main title -->
+    <div class="intro-s2" style="margin-top:2.5rem">
+      <div class="intro-byline">◆ &nbsp; A Bias Investigation Experience &nbsp; ◆</div>
+      <div class="intro-title-wrap">
+        <span class="intro-maintitle">The Lens</span>
+        <span class="intro-subtitle">Express</span>
+      </div>
+      <div class="intro-tagline">Six carriages &nbsp;·&nbsp; Six biases &nbsp;·&nbsp; One truth</div>
+    </div>
+  </div>
+  <!-- Train animation -->
+  <div class="intro-s3">
+    <div class="intro-rails"></div>
+    <div class="intro-train">🚂<span class="intro-steam">💨</span></div>
+  </div>
+  <!-- Loading bar -->
+  <div class="intro-s4">
+    <div class="intro-bar-lbl">All carriages boarding…</div>
+    <div class="intro-bar-wrap"><div class="intro-bar-fill"></div></div>
+  </div>
+  <!-- Credit -->
+  <div class="intro-credit">Designed &amp; crafted by Ashutosh</div>
 </div>
 
 <!-- HEADER -->
@@ -909,7 +960,8 @@ var S={
   startTime:null,ch:0,done:{},
   timerInt:null,pollLB:null,pollP:null,
   finished:false,demo:false,
-  score:0
+  score:0,
+  streak:0
 };
 var TOTAL=6;
 var STOPS=["Platform Zero","Car 1 · First Impression","Car 2 · Mirror Effect","Car 3 · Cipher Room","Car 4 · Testimonies","Car 5 · Decoder","🏁 Final Station"];
@@ -917,11 +969,23 @@ var STOPS=["Platform Zero","Car 1 · First Impression","Car 2 · Mirror Effect",
 /* ══════════════════════════════════════════
    SCORE
 ══════════════════════════════════════════ */
-function updateScore(delta){
+function updateScore(delta,isCorrect){
   S.score+=delta;
+  // streak tracking
+  if(isCorrect===true){
+    S.streak++;
+    if(S.streak>0 && S.streak%3===0){
+      // streak bonus every 3 correct in a row
+      S.score+=5;
+      toast("🔥 Streak x"+S.streak+"! +5 bonus pts","success");
+    }
+  } else if(isCorrect===false){
+    S.streak=0;
+  }
   var el=document.getElementById("score-badge");
   if(!el)return;
-  el.textContent=(S.score>=0?"⭐ +":"💀 ")+S.score+" pts";
+  var streakStr=S.streak>=3?" 🔥x"+S.streak:"";
+  el.textContent=(S.score>=0?"⭐ +":"💀 ")+S.score+" pts"+streakStr;
   el.className=S.score>0?"positive":S.score<0?"negative":"zero";
   el.classList.add("score-pop");
   setTimeout(function(){el.classList.remove("score-pop");},400);
@@ -1047,7 +1111,7 @@ function checkCipher(idx){
   var fb=document.getElementById("cfb"+idx);
   if(answer===correct){
     sndCipherSolve();
-    fireSuccess();updateScore(10);
+    fireSuccess();updateScore(10,true);
     cipherState.solved.push(idx);
     fb.className="cipher-fb show ok";
     fb.textContent="✅ DECODED — "+correct+" — "+getCipherExplain(correct);
@@ -1078,7 +1142,7 @@ function checkCipher(idx){
       toast("🔓 Enough ciphers decoded! You may proceed.","success");
     }
   } else {
-    sndWrong();updateScore(-10);
+    sndWrong();updateScore(-10,false);
     fb.className="cipher-fb show bad";
     fb.textContent="✗ Incorrect. Your answer: "+answer+". Try rearranging the letters.";
     setTimeout(function(){clearCipher(idx);fb.className="cipher-fb";},1600);
@@ -1100,9 +1164,13 @@ function getCipherExplain(word){
 function showCipherHint(idx){
   sndClick();
   var h=document.getElementById("chint"+idx);
-  if(h)h.classList.add("shown");
+  if(h&&!h.classList.contains("shown")){
+    h.classList.add("shown");
+    updateScore(-5,null);
+    toast("💡 Hint used — 5 pts deducted","info");
+  }
   var btn=document.getElementById("chintbtn"+idx);
-  if(btn)btn.style.opacity=".3";
+  if(btn){btn.style.opacity=".3";btn.textContent="💡 Hint (-5 pts used)";}
 }
 
 /* ══════════════════════════════════════════
@@ -1113,7 +1181,7 @@ setTimeout(function(){
   var c=document.getElementById("curtain");
   c.classList.add("out");
   c.addEventListener("transitionend",function(){c.style.display="none";},{once:true});
-},2900);
+},5500);
 
 (function(){
   var s=document.getElementById("ambient");
@@ -1326,7 +1394,7 @@ function answerQ(qid,idx){
   fb.className="feedback show "+(ok?"correct":"wrong");
   var nb=document.getElementById("q_"+qid+"_next");
   if(nb)nb.style.display="inline-flex";
-  if(ok){fireSuccess();sndCorrect();updateScore(10);}else{sndWrong();updateScore(-10);}
+  if(ok){fireSuccess();sndCorrect();updateScore(10,true);}else{sndWrong();updateScore(-10,false);}
 }
 
 /* ══════════════════════════════════════════
@@ -1346,7 +1414,7 @@ function answerFitb(qid,idx,word){
 
   if(!ok){
     // WRONG — show feedback but allow retry (do NOT lock done)
-    sndWrong();updateScore(-10);
+    sndWrong();updateScore(-10,false);
     var opts=document.querySelectorAll("#q_"+qid+"_opts .opt");
     opts[idx].classList.add("wrong");
     opts[idx].disabled=true; // disable only the wrong choice
@@ -1358,7 +1426,7 @@ function answerFitb(qid,idx,word){
 
   // CORRECT — lock question and proceed
   S.done[qid]=true;
-  sndCorrect();fireSuccess();updateScore(10);
+  sndCorrect();fireSuccess();updateScore(10,true);
   var opts2=document.querySelectorAll("#q_"+qid+"_opts .opt");
   for(var i=0;i<opts2.length;i++)opts2[i].disabled=true;
   opts2[idx].classList.add("correct");
@@ -1484,5 +1552,6 @@ function renderPlayers(data){
 /* Init */
 generateCode();
 </script>
+<div style="position:fixed;bottom:6px;left:50%;transform:translateX(-50%);font-family:'Cormorant Garant',serif;font-style:italic;font-size:.62rem;color:rgba(212,168,67,.2);letter-spacing:.12em;z-index:2;pointer-events:none;">Designed &amp; crafted by Ashutosh</div>
 </body>
 </html>
